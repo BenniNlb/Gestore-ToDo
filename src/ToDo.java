@@ -101,5 +101,20 @@ public class ToDo {
         this.posizione = posizione;
     }
 
+    public List<Utente> getCondivisoCon() {
+        return condivisoCon;
+    }
+
+    // Metodo per condividere il ToDo con un nuovo utente
+    public void aggiungiCondivisione(Utente utente) {
+        if (!condivisoCon.contains(utente)) {
+            condivisoCon.add(utente);
+        }
+    }
+
+    // Metodo per rimuovere la condivisione con un utente
+    public void rimuoviCondivisione(Utente utente) {
+        condivisoCon.remove(utente);
+    }
 }
 
