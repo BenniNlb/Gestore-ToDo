@@ -43,5 +43,14 @@ public class Bacheca {
         return toDos;
     }
 
+    // Metodo per aggiungere un ToDo alla bacheca (composizione)
+    public void aggiungiToDo(ToDo todo) {
+        toDos.add(todo);
     }
+
+    // Metodo per rimuovere un ToDo dalla bacheca
+    public void rimuoviToDo(ToDo todo) {
+        toDos.remove(todo);
+    }
+}
 
