@@ -1,9 +1,10 @@
-
-import java.util.UUID;
+package Model;
 
 // La classe Utente rappresenta un account personale nel sistema.
 // Ogni utente ha un ID univoco, un login (nome utente) e una password.
 // Questo serve per autenticare l’accesso al sistema.
+
+import java.util.UUID;
 
 public class Utente {
     private UUID idUtente;
@@ -30,4 +31,3 @@ public class Utente {
         return password;
     }
 }
-

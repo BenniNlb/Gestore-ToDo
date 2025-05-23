@@ -1,3 +1,4 @@
+package Model;
 
 import java.awt.Color;
 import java.time.LocalDate;
@@ -117,4 +118,5 @@ public class ToDo {
         condivisoCon.remove(utente);
     }
 }
+
 
