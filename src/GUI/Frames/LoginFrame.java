@@ -1,4 +1,12 @@
-package GUI;
+// NOTA: al momento LoginFrame e MainFrame non sono collegati tra loro.
+// Per gestire correttamente l’apertura del MainFrame dopo il login
+// è necessario un backend con database (DAO/Repository) per:
+//  1. Verificare le credenziali dell’utente (login/password).
+//  2. Caricare dal DB le bacheche e i ToDo associati a quell’utente.
+// Solo a valle di tale integrazione potremo passare l’utente autenticato
+// al MainController e popolare la UI con i suoi dati personali.
+
+package GUI.Frames;
 import javax.swing.*;
 import java.awt.*;
 import GUI.ColorsConstant;
@@ -11,7 +19,7 @@ public class LoginFrame extends JFrame {
 
     public LoginFrame() {
         setTitle("Gestore ToDo");
-        setSize(400, 250);
+        setSize(900, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setResizable(false);
@@ -25,7 +33,7 @@ public class LoginFrame extends JFrame {
 
         // Titolo in alto a sinistra
         JLabel titleLabel = new JLabel("Gestore ToDo");
-        titleLabel.setFont(new Font("SansSerif", Font.BOLD, 20));
+        titleLabel.setFont(new Font("SansSerif", Font.BOLD, 30));
         titleLabel.setForeground(Color.BLACK);
         titleLabel.setBorder(BorderFactory.createEmptyBorder(10, 10, 0, 0));
         mainPanel.add(titleLabel, BorderLayout.NORTH);
@@ -38,6 +46,7 @@ public class LoginFrame extends JFrame {
 
         // Label e campo Username
         JLabel userLabel = new JLabel("UserName");
+        userLabel.setFont(new Font("SansSerif", Font.BOLD, 15));
         userLabel.setForeground(Color.BLACK);
         userLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         formPanel.add(userLabel);
@@ -55,6 +64,7 @@ public class LoginFrame extends JFrame {
 
         // Label e campo Password
         JLabel passLabel = new JLabel("Password");
+        passLabel.setFont(new Font("SansSerif", Font.BOLD, 15));
         passLabel.setForeground(Color.BLACK);
         passLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         formPanel.add(passLabel);
@@ -104,3 +114,4 @@ public class LoginFrame extends JFrame {
         SwingUtilities.invokeLater(() -> new LoginFrame().setVisible(true));
     }
 }
+
