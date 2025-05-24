@@ -1,6 +1,5 @@
 package Model;
 
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -25,7 +24,7 @@ public class Bacheca {
         this.idBacheca = UUID.randomUUID();
         this.titolo = titolo;
         this.descrizione = descrizione;
-        this.toDos = new ArrayList<>();
+        this.toDos = new ArrayList<>(); // L'inizializzazione è già corretta qui!
     }
 
     // Getter per accedere ai campi privati
@@ -45,15 +44,15 @@ public class Bacheca {
         return toDos;
     }
 
-    // Metodo per aggiungere un ToDo alla bacheca (composizione)
     public void aggiungiToDo(ToDo todo) {
         toDos.add(todo);
     }
 
-    // Metodo per rimuovere un ToDo dalla bacheca
     public void rimuoviToDo(ToDo todo) {
         toDos.remove(todo);
     }
+
+    public void svuotaToDos() {
+        this.toDos.clear();
+    }
 }
-
-
