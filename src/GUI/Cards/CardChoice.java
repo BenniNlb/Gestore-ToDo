@@ -14,7 +14,7 @@ import java.util.stream.Stream;
 
 public class CardChoice extends JPanel {
     private final MainController ctrl;
-    private final MainFrame      mainFrame;
+    private final MainFrame mainFrame;
 
     public CardChoice(MainController ctrl, MainFrame mainFrame) {
         this.ctrl      = ctrl;
