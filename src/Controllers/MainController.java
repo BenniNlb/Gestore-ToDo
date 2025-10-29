@@ -1,16 +1,20 @@
 package Controllers;
+
+import Model.ToDo;
 import Model.TitoloBacheca;
 
 import java.time.LocalDate;
+import java.awt.Color;
+import java.util.List;
 
 public class MainController {
 
     private final BachecaController bachecaCtrl;
-    private final ToDoController    todoCtrl;
+    private final ToDoController todoCtrl;
 
     public MainController() {
         this.bachecaCtrl = new BachecaController();
-        this.todoCtrl    = new ToDoController(bachecaCtrl);
+        this.todoCtrl = new ToDoController(bachecaCtrl);
     }
 
     public BachecaController getBachecaController() {
@@ -26,7 +30,7 @@ public class MainController {
                           LocalDate data,
                           String link,
                           String descrizione,
-                          java.awt.Color colore,
+                          Color colore,
                           TitoloBacheca inBacheca) {
         todoCtrl.creaToDo(inBacheca, titolo, data, link, descrizione, colore);
     }
@@ -39,16 +43,24 @@ public class MainController {
         bachecaCtrl.eliminaBacheca(titolo);
     }
 
-    public void onDeleteToDo(Model.ToDo td) {
+    public void onDeleteToDo(ToDo td) {
         todoCtrl.eliminaToDo(td);
     }
 
-    public void onToggleCompletato(Model.ToDo td, boolean stato) {
+    public void onToggleCompletato(ToDo td, boolean stato) {
         todoCtrl.setCompletato(td, stato);
     }
 
-    public java.util.List<Model.ToDo> getScadenzeOggi() {
+    /** Nuovo metodo per modificare un ToDo */
+    public void onEditToDo(ToDo td,
+                           String nuovoTitolo,
+                           LocalDate nuovaData,
+                           String nuovoLink,
+                           String nuovaDescrizione) {
+        todoCtrl.modificaToDo(td, nuovoTitolo, nuovaData, nuovoLink, nuovaDescrizione);
+    }
+
+    public List<ToDo> getScadenzeOggi() {
         return todoCtrl.getToDoByDate(LocalDate.now());
     }
 }
-

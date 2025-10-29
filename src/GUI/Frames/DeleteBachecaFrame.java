@@ -1,4 +1,5 @@
-package GUI.Cards;
+package GUI.Frames;
+
 import Controllers.MainController;
 import Model.TitoloBacheca;
 
@@ -6,8 +7,9 @@ import javax.swing.*;
 import java.awt.*;
 
 public class DeleteBachecaFrame extends JFrame {
+
     public DeleteBachecaFrame(MainController ctrl, TitoloBacheca[] disponibili) {
-        setTitle("Elimina Bacheca");
+        super("Elimina Bacheca");
         setSize(300,150);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(5,5));

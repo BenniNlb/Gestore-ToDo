@@ -3,14 +3,14 @@ package Controllers;
 import Model.ToDo;
 import Model.Bacheca;
 import Model.TitoloBacheca;
-import java.awt.*;
+
+import java.awt.Color;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class ToDoController {
+
     private final BachecaController bachecaCtrl;
 
     public ToDoController(BachecaController bCtrl) {
@@ -35,11 +35,10 @@ public class ToDoController {
         td.setColoreSfondo(coloreSfondo);
 
         Bacheca b = bachecaCtrl.getBacheca(inBacheca);
+        if (b == null) throw new IllegalArgumentException("Bacheca di destinazione non trovata: " + inBacheca);
         b.aggiungiToDo(td);
-        // Chiamata aggiornaScadenze per gestire SCADENZE_DI_OGGI
-        // E importante: dopo qualsiasi modifica ai ToDo, aggiorniamo la bacheca
-        // delle scadenze e poi notifichiamo la UI tramite BachecaController.
-        aggiornaScadenzeGenerale(); // Chiamiamo un nuovo metodo che aggiorna tutte le bacheche
+
+        bachecaCtrl.notifyChange();
         return td;
     }
 
@@ -47,19 +46,19 @@ public class ToDoController {
         for (Bacheca b : bachecaCtrl.getAllBacheche()) {
             b.rimuoviToDo(td);
         }
-        aggiornaScadenzeGenerale(); // Aggiorna tutte le bacheche dopo l'eliminazione
+        bachecaCtrl.notifyChange();
     }
 
     public void setCompletato(ToDo td, boolean completato) {
         td.setCompletato(completato);
-        aggiornaScadenzeGenerale(); // Aggiorna tutte le bacheche dopo il cambio di stato
+        bachecaCtrl.notifyChange();
     }
 
     public List<ToDo> getToDoByDate(LocalDate date) {
         List<ToDo> result = new ArrayList<>();
         for (Bacheca b : bachecaCtrl.getAllBacheche()) {
             for (ToDo td : b.getToDos()) {
-                if (date.equals(td.getDataScadenza())) {
+                if (date != null && date.equals(td.getDataScadenza())) {
                     result.add(td);
                 }
             }
@@ -67,38 +66,14 @@ public class ToDoController {
         return result;
     }
 
-    // Questo metodo gestisce l'aggiornamento di tutte le bacheche e la notifica alla UI.
-    // Viene chiamato dopo ogni operazione di modifica ToDo.
-    private void aggiornaScadenzeGenerale() {
-        // Prima, aggiorniamo la bacheca "Scadenze di oggi" (che già notifica la UI)
-        bachecaCtrl.aggiornaScadenzeOggi(getAllToDos());
-        // Se si modificano ToDo in bacheche diverse da SCADENZE_DI_OGGI
-        // dobbiamo anche notificare il cambiamento per tutte le altre bacheche.
-        // Dato che BachecaController.aggiornaScadenzeOggi() già chiama notifyListeners(),
-        // questo è sufficiente. Se aggiornassimo altre bacheche, dovremmo notificare di nuovo.
-        // Ma, in questo caso, la refreshCenter della MainFrame ridisegnerà tutto
-        // dopo la notifica di aggiornaScadenzeOggi().
-    }
-
-    /**
-     * Ritorna tutti i ToDo presenti in tutte le bacheche (incluse le scadenze di oggi)
-     */
     public List<ToDo> getAllToDos() {
         List<ToDo> all = new ArrayList<>();
         for (Bacheca b : bachecaCtrl.getAllBacheche()) {
-            // È importante escludere la bacheca SCADENZE_DI_OGGI da getAllToDos()
-            // se non vogliamo duplicati quando la bacheca viene ripopolata.
-            // O altrimenti, assicurarsi che i ToDo non siano già presenti.
-            if (b.getTitolo() != TitoloBacheca.SCADENZE_DI_OGGI) {
-                all.addAll(b.getToDos());
-            }
+            all.addAll(b.getToDos());
         }
         return all;
     }
 
-    /**
-     * Cerca tutti i ToDo che contengono la query nel titolo o nella descrizione
-     */
     public List<ToDo> searchToDo(String query) {
         if (query == null || query.trim().isEmpty())
             return new ArrayList<>();
@@ -109,5 +84,21 @@ public class ToDoController {
                         (td.getTitolo() != null && td.getTitolo().toLowerCase().contains(q)) ||
                                 (td.getDescrizione() != null && td.getDescrizione().toLowerCase().contains(q)))
                 .collect(Collectors.toList());
+    }
+
+    /** Nuovo metodo per modificare un ToDo */
+    public void modificaToDo(ToDo td,
+                             String nuovoTitolo,
+                             LocalDate nuovaData,
+                             String nuovoLink,
+                             String nuovaDescrizione) {
+        if (td == null) throw new IllegalArgumentException("ToDo nullo");
+
+        td.setTitolo(nuovoTitolo);
+        td.setDataScadenza(nuovaData);
+        td.setLinkURL(nuovoLink);
+        td.setDescrizione(nuovaDescrizione);
+
+        bachecaCtrl.notifyChange();
     }
 }
