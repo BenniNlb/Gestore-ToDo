@@ -6,18 +6,18 @@
 // Solo a valle di tale integrazione potremo passare l’utente autenticato
 // al MainController e popolare la UI con i suoi dati personali.
 
-package GUI.Frames;
+package GUI.Views;
 import javax.swing.*;
 import java.awt.*;
 import GUI.ColorsConstant;
 
-public class LoginFrame extends JFrame {
+public class LoginView extends JFrame {
 
     JTextField usernameField;
     JPasswordField passwordField;
     JButton loginButton;
 
-    public LoginFrame() {
+    public LoginView() {
         setTitle("Gestore ToDo");
         setSize(900, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -111,7 +111,7 @@ public class LoginFrame extends JFrame {
     }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new LoginFrame().setVisible(true));
+        SwingUtilities.invokeLater(() -> new LoginView().setVisible(true));
     }
 }
 
