@@ -8,13 +8,13 @@ import java.util.UUID;
 
 public class Utente {
     private UUID idUtente;
-    private String login;
+    private String username;
     private String password;
 
     // Il costruttore genera l’ID automaticamente e assegna login e password.
     public Utente(String login, String password) {
         this.idUtente = UUID.randomUUID();
-        this.login = login;
+        this.username = login;
         this.password = password;
     }
 
@@ -24,7 +24,7 @@ public class Utente {
     }
 
     public String getLogin() {
-        return login;
+        return username;
     }
 
     public String getPassword() {
