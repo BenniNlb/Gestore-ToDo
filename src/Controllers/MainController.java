@@ -3,9 +3,10 @@ package Controllers;
 import Model.ToDo;
 import Model.TitoloBacheca;
 
-import java.time.LocalDate;
 import java.awt.Color;
+import java.time.LocalDate;
 import java.util.List;
+import javax.swing.ImageIcon;
 
 public class MainController {
 
@@ -25,14 +26,15 @@ public class MainController {
         return todoCtrl;
     }
 
-    /** Azioni delegate dal CardChoice **/
+    /** Azioni delegate dal CardChoice (aggiornata per lista di link e immagine) **/
     public void onAddToDo(String titolo,
                           LocalDate data,
-                          String link,
+                          java.util.List<String> linkURLs,
                           String descrizione,
                           Color colore,
-                          TitoloBacheca inBacheca) {
-        todoCtrl.creaToDo(inBacheca, titolo, data, link, descrizione, colore);
+                          TitoloBacheca inBacheca,
+                          ImageIcon immagine) {
+        todoCtrl.creaToDo(inBacheca, titolo, data, linkURLs, descrizione, colore, immagine);
     }
 
     public void onAddBacheca(TitoloBacheca titolo, String descrizione) {
@@ -51,16 +53,19 @@ public class MainController {
         todoCtrl.setCompletato(td, stato);
     }
 
-    /** Nuovo metodo per modificare un ToDo */
+    /** Metodo per modificare un ToDo (aggiornato) */
+    // MODIFICATO: ora riceve anche la bacheca di destinazione
     public void onEditToDo(ToDo td,
                            String nuovoTitolo,
                            LocalDate nuovaData,
-                           String nuovoLink,
-                           String nuovaDescrizione) {
-        todoCtrl.modificaToDo(td, nuovoTitolo, nuovaData, nuovoLink, nuovaDescrizione);
+                           java.util.List<String> nuoviLink,
+                           String nuovaDescrizione,
+                           ImageIcon nuovaImmagine,
+                           TitoloBacheca nuovaBacheca) {
+        todoCtrl.modificaToDo(td, nuovoTitolo, nuovaData, nuoviLink, nuovaDescrizione, nuovaImmagine, nuovaBacheca);
     }
 
-    public List<ToDo> getScadenzeOggi() {
+    public java.util.List<ToDo> getScadenzeOggi() {
         return todoCtrl.getToDoByDate(LocalDate.now());
     }
 }
