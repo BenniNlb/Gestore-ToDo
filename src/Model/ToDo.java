@@ -8,32 +8,31 @@ import java.util.UUID;
 import javax.swing.ImageIcon;
 
 // La classe ToDo rappresenta un’attività o compito da completare.
-// È l’elemento centrale del sistema, ispirato a Trello.
-// Ogni ToDo ha informazioni dettagliate e può essere condiviso con più utenti.
-
+// Ora supporta più link (List<String>) e un'immagine allegata (ImageIcon).
 public class ToDo {
     private UUID idToDo;
     private String titolo;
     private LocalDate dataScadenza;
     private Color coloreSfondo;
-    private String linkURL;
+    // lista di link (ora supportiamo più link)
+    private List<String> linkURLs;
     private String descrizione;
     private ImageIcon immagine;
     private boolean stato;
     private int posizione;
 
-    // Lista degli utenti con cui il ToDo è condiviso
     private List<Utente> condivisoCon;
 
-    // Costruttore minimale, permette di creare un ToDo con il titolo obbligatorio
+    // Costruttore minimale
     public ToDo(String titolo) {
         this.idToDo = UUID.randomUUID();
         this.titolo = titolo;
-        this.stato = false;// Di default il ToDo non è completato
+        this.stato = false;
         this.condivisoCon = new ArrayList<>();
+        this.linkURLs = new ArrayList<>();
     }
 
-    // Getter e setter per tutti gli attributi
+    // Getter e setter
     public UUID getIdToDo() {
         return idToDo;
     }
@@ -62,12 +61,23 @@ public class ToDo {
         this.coloreSfondo = coloreSfondo;
     }
 
-    public String getLinkURL() {
-        return linkURL;
+    // Link multipli
+    public List<String> getLinkURLs() {
+        return linkURLs;
     }
 
-    public void setLinkURL(String linkURL) {
-        this.linkURL = linkURL;
+    public void setLinkURLs(List<String> linkURLs) {
+        this.linkURLs = linkURLs != null ? new ArrayList<>(linkURLs) : new ArrayList<>();
+    }
+
+    public void aggiungiLink(String link) {
+        if (link == null) return;
+        if (this.linkURLs == null) this.linkURLs = new ArrayList<>();
+        if (!this.linkURLs.contains(link)) this.linkURLs.add(link);
+    }
+
+    public void rimuoviLink(String link) {
+        if (this.linkURLs != null) this.linkURLs.remove(link);
     }
 
     public String getDescrizione() {
@@ -106,17 +116,13 @@ public class ToDo {
         return condivisoCon;
     }
 
-    // Metodo per condividere il ToDo con un nuovo utente
     public void aggiungiCondivisione(Utente utente) {
         if (!condivisoCon.contains(utente)) {
             condivisoCon.add(utente);
         }
     }
 
-    // Metodo per rimuovere la condivisione con un utente
     public void rimuoviCondivisione(Utente utente) {
         condivisoCon.remove(utente);
     }
 }
-
-

@@ -1,10 +1,11 @@
 package GUI.Cards;
 
 import Controllers.MainController;
-import GUI.Frames.*;
+import GUI.Dialogs.AddBachecaDialog;
+import GUI.Dialogs.AddEditToDoDialog;
+import GUI.Dialogs.DeleteBachecaDialog;
 import Model.Bacheca;
 import Model.TitoloBacheca;
-import GUI.ColorsConstant;
 
 import javax.swing.*;
 import java.awt.*;
@@ -13,13 +14,17 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class CardChoice extends JPanel {
-    public CardChoice(MainController ctrl, JFrame parent) {
+
+    public CardChoice(MainController ctrl, Window parent) {
         setLayout(new GridLayout(3, 1, 0, 5));
-        setBackground(ColorsConstant.PinkFairy);
+        setBackground(new Color(236, 198, 214));
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        add(makeLabel("Aggiungi ToDo", () -> new AddEditToDoFrame(ctrl)));
+        // Aggiungi ToDo
+        JLabel l1 = makeLabel("Aggiungi ToDo", () -> new AddEditToDoDialog(parent, ctrl));
+        add(l1);
 
+        // Aggiungi Bacheca
         add(makeLabel("Aggiungi Bacheca", () -> {
             List<TitoloBacheca> tutte = Stream.of(
                     TitoloBacheca.UNIVERSITA,
@@ -36,9 +41,10 @@ public class CardChoice extends JPanel {
                     .filter(t -> !esistenti.contains(t))
                     .collect(Collectors.toList());
 
-            new AddBachecaFrame(ctrl, disponibili);
+            new AddBachecaDialog(parent, ctrl, disponibili);
         }));
 
+        // Elimina Bacheca
         add(makeLabel("Elimina Bacheca", () -> {
             List<TitoloBacheca> presenti = ctrl.getBachecaController()
                     .getAllBacheche().stream()
@@ -49,7 +55,7 @@ public class CardChoice extends JPanel {
                 JOptionPane.showMessageDialog(this, "Nessuna bacheca da eliminare.", "Info", JOptionPane.INFORMATION_MESSAGE);
                 return;
             }
-            new DeleteBachecaFrame(ctrl, presenti.toArray(new TitoloBacheca[0]));
+            new DeleteBachecaDialog(parent, ctrl, presenti.toArray(new TitoloBacheca[0]));
         }));
     }
 
@@ -61,7 +67,10 @@ public class CardChoice extends JPanel {
         lbl.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent e) {
                 action.run();
-                SwingUtilities.getWindowAncestor(lbl).dispose();
+                // se questo pannello è dentro un popup, chiudilo
+                java.awt.Container c = lbl.getParent();
+                while (c != null && !(c instanceof JPopupMenu)) c = c.getParent();
+                if (c instanceof JPopupMenu) ((JPopupMenu) c).setVisible(false);
             }
         });
         return lbl;

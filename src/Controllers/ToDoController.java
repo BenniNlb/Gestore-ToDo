@@ -8,6 +8,7 @@ import java.awt.Color;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
+import javax.swing.ImageIcon;
 
 public class ToDoController {
 
@@ -17,12 +18,16 @@ public class ToDoController {
         this.bachecaCtrl = bCtrl;
     }
 
+    /**
+     * Ora accetta una lista di link e un'ImageIcon opzionale.
+     */
     public ToDo creaToDo(TitoloBacheca inBacheca,
                          String titolo,
                          LocalDate dataScadenza,
-                         String linkURL,
+                         List<String> linkURLs,
                          String descrizione,
-                         Color coloreSfondo) {
+                         Color coloreSfondo,
+                         ImageIcon immagine) {
         if (titolo == null || titolo.trim().isEmpty())
             throw new IllegalArgumentException("Titolo obbligatorio");
         if (dataScadenza == null)
@@ -30,9 +35,10 @@ public class ToDoController {
 
         ToDo td = new ToDo(titolo);
         td.setDataScadenza(dataScadenza);
-        td.setLinkURL(linkURL);
+        td.setLinkURLs(linkURLs);
         td.setDescrizione(descrizione);
         td.setColoreSfondo(coloreSfondo);
+        td.setImmagine(immagine);
 
         Bacheca b = bachecaCtrl.getBacheca(inBacheca);
         if (b == null) throw new IllegalArgumentException("Bacheca di destinazione non trovata: " + inBacheca);
@@ -82,22 +88,56 @@ public class ToDoController {
         return getAllToDos().stream()
                 .filter(td ->
                         (td.getTitolo() != null && td.getTitolo().toLowerCase().contains(q)) ||
-                                (td.getDescrizione() != null && td.getDescrizione().toLowerCase().contains(q)))
+                                (td.getDescrizione() != null && td.getDescrizione().toLowerCase().contains(q)) ||
+                                (td.getLinkURLs() != null && td.getLinkURLs().stream().anyMatch(l -> l.toLowerCase().contains(q)))
+                )
                 .collect(Collectors.toList());
     }
 
-    /** Nuovo metodo per modificare un ToDo */
+    /** Modifica: ora permette anche di aggiornare la lista di link, l'immagine e la bacheca */
     public void modificaToDo(ToDo td,
                              String nuovoTitolo,
                              LocalDate nuovaData,
-                             String nuovoLink,
-                             String nuovaDescrizione) {
+                             List<String> nuoviLink,
+                             String nuovaDescrizione,
+                             ImageIcon nuovaImmagine,
+                             TitoloBacheca nuovaBacheca) {
         if (td == null) throw new IllegalArgumentException("ToDo nullo");
 
+        // Trova la bacheca corrente che contiene il ToDo (se esiste)
+        Bacheca bachecaCorrente = bachecaCtrl.getAllBacheche().stream()
+                .filter(b -> b.getToDos().contains(td))
+                .findFirst()
+                .orElse(null);
+
+        // Trova la bacheca di destinazione
+        Bacheca bDest = bachecaCtrl.getBacheca(nuovaBacheca);
+        if (bDest == null) {
+            // Se non esiste la bacheca di destinazione, mantieni lo stato precedente ma aggiorna i campi
+            td.setTitolo(nuovoTitolo);
+            td.setDataScadenza(nuovaData);
+            td.setLinkURLs(nuoviLink);
+            td.setDescrizione(nuovaDescrizione);
+            td.setImmagine(nuovaImmagine);
+            bachecaCtrl.notifyChange();
+            return;
+        }
+
+        // Aggiorna i campi del ToDo
         td.setTitolo(nuovoTitolo);
         td.setDataScadenza(nuovaData);
-        td.setLinkURL(nuovoLink);
+        td.setLinkURLs(nuoviLink);
         td.setDescrizione(nuovaDescrizione);
+        td.setImmagine(nuovaImmagine);
+
+        // Se la bacheca è cambiata → sposta il ToDo
+        if (bachecaCorrente != null && !bachecaCorrente.equals(bDest)) {
+            bachecaCorrente.rimuoviToDo(td);
+            bDest.aggiungiToDo(td);
+        } else if (bachecaCorrente == null) {
+            // Se non era in nessuna bacheca (improbabile), aggiungilo comunque
+            bDest.aggiungiToDo(td);
+        }
 
         bachecaCtrl.notifyChange();
     }

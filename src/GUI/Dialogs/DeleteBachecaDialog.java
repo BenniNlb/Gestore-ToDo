@@ -1,4 +1,4 @@
-package GUI.Frames;
+package GUI.Dialogs;
 
 import Controllers.MainController;
 import Model.TitoloBacheca;
@@ -6,27 +6,28 @@ import Model.TitoloBacheca;
 import javax.swing.*;
 import java.awt.*;
 
-public class DeleteBachecaFrame extends JFrame {
+public class DeleteBachecaDialog extends JDialog {
 
-    public DeleteBachecaFrame(MainController ctrl, TitoloBacheca[] disponibili) {
-        super("Elimina Bacheca");
-        setSize(300,150);
-        setLocationRelativeTo(null);
-        setLayout(new BorderLayout(5,5));
+    public DeleteBachecaDialog(Window parent, MainController ctrl, TitoloBacheca[] disponibili) {
+        super(parent, "Elimina Bacheca", ModalityType.APPLICATION_MODAL);
+        setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+        setResizable(false);
 
         JPanel p = new JPanel();
         p.add(new JLabel("Seleziona bacheca:"));
         JComboBox<TitoloBacheca> combo = new JComboBox<>(disponibili);
         p.add(combo);
-        add(p, BorderLayout.CENTER);
+        getContentPane().add(p, BorderLayout.CENTER);
 
         JButton delete = new JButton("Elimina");
         delete.addActionListener(e -> {
             ctrl.onDeleteBacheca((TitoloBacheca) combo.getSelectedItem());
             dispose();
         });
-        add(delete, BorderLayout.SOUTH);
+        getContentPane().add(delete, BorderLayout.SOUTH);
 
+        pack();
+        setLocationRelativeTo(parent);
         setVisible(true);
     }
 }

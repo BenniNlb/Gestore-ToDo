@@ -1,4 +1,4 @@
-package GUI.Frames;
+package GUI.Dialogs;
 
 import Controllers.MainController;
 import Model.TitoloBacheca;
@@ -6,16 +6,17 @@ import Model.TitoloBacheca;
 import javax.swing.*;
 import java.awt.*;
 import java.util.List;
+import java.util.stream.Collectors;
 
-public class AddBachecaFrame extends JFrame {
+public class AddBachecaDialog extends JDialog {
 
-    public AddBachecaFrame(MainController ctrl, List<TitoloBacheca> disponibili) {
-        super("Nuova Bacheca");
+    public AddBachecaDialog(Window parent, MainController ctrl, java.util.List<TitoloBacheca> disponibili) {
+        super(parent, "Nuova Bacheca", ModalityType.APPLICATION_MODAL);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
-        setLocationRelativeTo(null);
+        setResizable(false);
 
-        if (disponibili.isEmpty()) {
-            JOptionPane.showMessageDialog(this,
+        if (disponibili == null || disponibili.isEmpty()) {
+            JOptionPane.showMessageDialog(parent,
                     "Nessuna bacheca disponibile da aggiungere.",
                     "Limite raggiunto",
                     JOptionPane.WARNING_MESSAGE);
@@ -34,14 +35,15 @@ public class AddBachecaFrame extends JFrame {
             }
         });
 
-        JPanel panel = new JPanel(new BorderLayout(5, 5));
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        JPanel panel = new JPanel(new BorderLayout(8,8));
+        panel.setBorder(BorderFactory.createEmptyBorder(10,10,10,10));
         panel.add(new JLabel("Seleziona Bacheca:"), BorderLayout.NORTH);
         panel.add(combo, BorderLayout.CENTER);
         panel.add(addBtn, BorderLayout.SOUTH);
 
-        add(panel);
+        getContentPane().add(panel);
         pack();
+        setLocationRelativeTo(parent);
         setVisible(true);
     }
 }
