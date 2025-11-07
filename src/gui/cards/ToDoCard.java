@@ -1,8 +1,8 @@
-package GUI.Cards;
+package gui.cards;
 
-import Controllers.MainController;
-import Model.ToDo;
-import GUI.Dialogs.*;
+import controllers.MainController;
+import model.ToDo;
+import gui.dialogs.*;
 
 import javax.swing.*;
 import java.awt.*;
@@ -12,11 +12,11 @@ import java.awt.event.MouseEvent;
 import java.net.URI;
 import java.util.List;
 
-public class ToDoCard extends JPanel {
-    private static final int MAX_WIDTH = 420;
-    private static final int MIN_HEIGHT = 90;
-    private static final int INNER_PADDING = 20;
+import java.time.LocalDate;
+import java.util.Map;
 
+public class ToDoCard extends JPanel {
+    private static final int MIN_HEIGHT = 90;
 
     private static final DataFlavor TODO_FLAVOR;
     static {
@@ -27,54 +27,94 @@ public class ToDoCard extends JPanel {
         }
     }
 
-    public ToDoCard(ToDo todo, MainController ctrl) {
-        setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-        setBackground(todo.getColoreSfondo() != null ? todo.getColoreSfondo() : new Color(255, 228, 230));
+    // MODIFICATO: Aggiunto boolean draggable
+    public ToDoCard(ToDo todo, MainController ctrl, int cardWidth, boolean draggable) {
+        setLayout(new BorderLayout(0, 4)); // 4px di gap verticale
+        setBackground(todo.getColoreSfondo() != null ? todo.getColoreSfondo() : Color.WHITE);
         setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(Color.LIGHT_GRAY, 1),
                 BorderFactory.createEmptyBorder(8, 10, 8, 10)
         ));
 
-        // Drag handler
-        setTransferHandler(new TransferHandler() {
-            @Override
-            protected Transferable createTransferable(JComponent c) {
-                return new Transferable() {
-                    @Override
-                    public DataFlavor[] getTransferDataFlavors() {
-                        return new DataFlavor[]{TODO_FLAVOR};
-                    }
-                    @Override
-                    public boolean isDataFlavorSupported(DataFlavor flavor) {
-                        return TODO_FLAVOR.equals(flavor);
-                    }
-                    @Override
-                    public Object getTransferData(DataFlavor flavor) {
-                        return todo;
-                    }
-                };
-            }
-            @Override
-            public int getSourceActions(JComponent c) {
-                return MOVE;
-            }
-        });
+        Insets insets = getBorder().getBorderInsets(this);
+        int contentWidth = cardWidth - insets.left - insets.right;
+        if (contentWidth <= 0) contentWidth = 100; // Fallback
 
-        addMouseListener(new MouseAdapter() {
-            @Override
-            public void mousePressed(MouseEvent e) {
-                TransferHandler th = getTransferHandler();
-                if (th != null) {
-                    th.exportAsDrag(ToDoCard.this, e, TransferHandler.MOVE);
+        // --- MODIFICATO: Tutta la logica DnD è ora condizionale ---
+        if (draggable) {
+            // Drag handler
+            setTransferHandler(new TransferHandler() {
+                @Override
+                protected Transferable createTransferable(JComponent c) {
+                    return new Transferable() {
+                        @Override
+                        public DataFlavor[] getTransferDataFlavors() {
+                            return new DataFlavor[]{TODO_FLAVOR};
+                        }
+                        @Override
+                        public boolean isDataFlavorSupported(DataFlavor flavor) {
+                            return TODO_FLAVOR.equals(flavor);
+                        }
+                        @Override
+                        public Object getTransferData(DataFlavor flavor) {
+                            return todo;
+                        }
+                    };
                 }
+                @Override
+                public int getSourceActions(JComponent c) {
+                    return MOVE;
+                }
+            });
+
+            addMouseListener(new MouseAdapter() {
+                @Override
+                public void mousePressed(MouseEvent e) {
+                    TransferHandler th = getTransferHandler();
+                    if (th != null) {
+                        th.exportAsDrag(ToDoCard.this, e, TransferHandler.MOVE);
+                    }
+                }
+            });
+        }
+        // --- FINE MODIFICA ---
+
+        // ===== TOP ROW (CHECKBOX + TITOLO) [BorderLayout.NORTH] =====
+        JPanel topRow = new JPanel(new BorderLayout(5, 0));
+        topRow.setOpaque(false);
+
+        JLabel titolo = new JLabel(troncaTesto(todo.getTitolo(), 20));
+        titolo.setFont(new Font("SansSerif", Font.BOLD, 15));
+
+        JCheckBox checkCompletato = new JCheckBox();
+        checkCompletato.setOpaque(false);
+        checkCompletato.setSelected(todo.isCompletato());
+
+        boolean scaduto = todo.getDataScadenza() != null && todo.getDataScadenza().isBefore(LocalDate.now());
+
+        if (scaduto && !todo.isCompletato()) {
+            titolo.setForeground(Color.RED);
+        }
+
+        checkCompletato.addActionListener(e -> {
+            boolean isSelected = checkCompletato.isSelected();
+            ctrl.onToggleCompletato(todo, isSelected);
+
+            if (scaduto) {
+                titolo.setForeground(isSelected ? Color.BLACK : Color.RED);
+            } else {
+                titolo.setForeground(Color.BLACK);
             }
         });
 
-        // ===== TITOLO =====
-        JLabel titolo = new JLabel(troncaTesto(todo.getTitolo(), 35));
-        titolo.setFont(new Font("SansSerif", Font.BOLD, 15));
-        titolo.setAlignmentX(Component.LEFT_ALIGNMENT);
-        add(titolo);
+        topRow.add(checkCompletato, BorderLayout.WEST);
+        topRow.add(titolo, BorderLayout.CENTER);
+        add(topRow, BorderLayout.NORTH);
+
+        // ===== CONTENT PANEL (Descrizione e Immagine) [BorderLayout.CENTER] =====
+        JPanel contentPanel = new JPanel();
+        contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
+        contentPanel.setOpaque(false);
 
         // ===== DESCRIZIONE (opzionale) =====
         if (todo.getDescrizione() != null && !todo.getDescrizione().isBlank()) {
@@ -86,62 +126,58 @@ public class ToDoCard extends JPanel {
             desc.setFont(new Font("SansSerif", Font.PLAIN, 13));
             desc.setAlignmentX(Component.LEFT_ALIGNMENT);
             desc.setBorder(BorderFactory.createEmptyBorder(6, 0, 6, 0));
-            add(desc);
+
+            contentPanel.add(desc);
         }
 
         // ===== IMMAGINE (opzionale) =====
         if (todo.getImmagine() != null) {
             ImageIcon img = todo.getImmagine();
-            ImageIcon scaled = scaleIconToWidth(img, MAX_WIDTH - INNER_PADDING);
+            ImageIcon scaled = scaleIconToWidth(img, contentWidth);
             JLabel imgLabel = new JLabel(scaled);
             imgLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
             imgLabel.setBorder(BorderFactory.createEmptyBorder(6, 0, 6, 0));
-            add(imgLabel);
+
+            contentPanel.add(imgLabel);
         }
 
-        // ===== FOOTER (Data + Pulsanti) =====
-        JPanel footer = new JPanel(new BorderLayout(6, 0));
+        if (contentPanel.getComponentCount() == 0) {
+            contentPanel.add(Box.createVerticalStrut(MIN_HEIGHT / 3));
+        }
+
+        add(contentPanel, BorderLayout.CENTER);
+
+        // ===== FOOTER (Data + Pulsanti) [BorderLayout.SOUTH] =====
+        JPanel footer = new JPanel();
+        footer.setLayout(new BoxLayout(footer, BoxLayout.X_AXIS));
         footer.setOpaque(false);
-        footer.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel dateLabel = new JLabel(todo.getDataScadenza() != null ? todo.getDataScadenza().toString() : "Senza data");
         dateLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        footer.add(dateLabel, BorderLayout.WEST);
 
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
         right.setOpaque(false);
 
-        // Bottone Links
-        JButton linksBtn = new JButton("Links");
+        JButton linksBtn = new JButton("🔗");
         linksBtn.addActionListener(e -> mostraLinks(todo));
         right.add(linksBtn);
 
-        // Bottone ⋯ (menu)
         JButton menuBtn = new JButton("⋯");
         menuBtn.addActionListener(e -> mostraMenu(ctrl, todo, menuBtn));
         right.add(menuBtn);
 
-        footer.add(right, BorderLayout.EAST);
+        footer.add(dateLabel);
+        footer.add(Box.createHorizontalGlue());
+        footer.add(right);
 
-        // Imposta dimensione massima orizzontale
         Dimension footerPref = footer.getPreferredSize();
         footer.setMaximumSize(new Dimension(Integer.MAX_VALUE, footerPref.height));
-        footer.setPreferredSize(new Dimension(MAX_WIDTH - INNER_PADDING, footerPref.height));
 
-        add(Box.createRigidArea(new Dimension(0, 6)));
-        add(footer);
-
-        // Margine inferiore
-        add(Box.createVerticalStrut(5));
-
-        // Dimensioni dinamiche
-        setMaximumSize(new Dimension(MAX_WIDTH, Integer.MAX_VALUE));
-        revalidate();
-        int prefH = getPreferredSize().height;
-        setPreferredSize(new Dimension(MAX_WIDTH, Math.max(MIN_HEIGHT, prefH)));
+        add(footer, BorderLayout.SOUTH);
     }
 
     // ===== FUNZIONI DI SUPPORTO =====
+
     private void mostraLinks(ToDo todo) {
         List<String> links = todo.getLinkURLs();
         if (links == null || links.isEmpty()) {
@@ -208,14 +244,18 @@ public class ToDoCard extends JPanel {
 
     private ImageIcon scaleIconToWidth(ImageIcon src, int maxWidth) {
         if (src == null) return null;
+        if (maxWidth <= 0) maxWidth = 100;
+
         int w = src.getIconWidth();
         int h = src.getIconHeight();
         if (w <= maxWidth) return src;
+
         int newW = maxWidth;
         int newH = (int) ((double) h / w * newW);
+
+        if (newH <= 0) newH = 1;
+
         Image scaled = src.getImage().getScaledInstance(newW, newH, Image.SCALE_SMOOTH);
         return new ImageIcon(scaled);
     }
-
-
 }

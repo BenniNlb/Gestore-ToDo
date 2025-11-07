@@ -1,4 +1,4 @@
-package Model;
+package model;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +39,12 @@ public class Bacheca {
     public String getDescrizione() {
         return descrizione;
     }
+
+    // --- NUOVO METODO ---
+    public void setDescrizione(String descrizione) {
+        this.descrizione = descrizione;
+    }
+    // --- FINE NUOVO METODO ---
 
     public List<ToDo> getToDos() {
         return toDos;

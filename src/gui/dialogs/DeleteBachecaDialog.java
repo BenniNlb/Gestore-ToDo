@@ -1,7 +1,7 @@
-package GUI.Dialogs;
+package gui.dialogs;
 
-import Controllers.MainController;
-import Model.TitoloBacheca;
+import controllers.MainController;
+import model.TitoloBacheca;
 
 import javax.swing.*;
 import java.awt.*;

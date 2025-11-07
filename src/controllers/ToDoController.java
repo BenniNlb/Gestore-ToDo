@@ -1,8 +1,8 @@
-package Controllers;
+package controllers;
 
-import Model.ToDo;
-import Model.Bacheca;
-import Model.TitoloBacheca;
+import model.ToDo;
+import model.Bacheca;
+import model.TitoloBacheca;
 
 import java.awt.Color;
 import java.time.LocalDate;
@@ -94,14 +94,15 @@ public class ToDoController {
                 .collect(Collectors.toList());
     }
 
-    /** Modifica: ora permette anche di aggiornare la lista di link, l'immagine e la bacheca */
+    /** Modifica: ora permette anche di aggiornare link, immagine, bacheca E COLORE */
     public void modificaToDo(ToDo td,
                              String nuovoTitolo,
                              LocalDate nuovaData,
                              List<String> nuoviLink,
                              String nuovaDescrizione,
                              ImageIcon nuovaImmagine,
-                             TitoloBacheca nuovaBacheca) {
+                             TitoloBacheca nuovaBacheca,
+                             Color nuovoColore) { // <-- 1. AGGIUNGI QUESTO PARAMETRO
         if (td == null) throw new IllegalArgumentException("ToDo nullo");
 
         // Trova la bacheca corrente che contiene il ToDo (se esiste)
@@ -112,16 +113,6 @@ public class ToDoController {
 
         // Trova la bacheca di destinazione
         Bacheca bDest = bachecaCtrl.getBacheca(nuovaBacheca);
-        if (bDest == null) {
-            // Se non esiste la bacheca di destinazione, mantieni lo stato precedente ma aggiorna i campi
-            td.setTitolo(nuovoTitolo);
-            td.setDataScadenza(nuovaData);
-            td.setLinkURLs(nuoviLink);
-            td.setDescrizione(nuovaDescrizione);
-            td.setImmagine(nuovaImmagine);
-            bachecaCtrl.notifyChange();
-            return;
-        }
 
         // Aggiorna i campi del ToDo
         td.setTitolo(nuovoTitolo);
@@ -129,6 +120,13 @@ public class ToDoController {
         td.setLinkURLs(nuoviLink);
         td.setDescrizione(nuovaDescrizione);
         td.setImmagine(nuovaImmagine);
+        td.setColoreSfondo(nuovoColore); // <-- 2. AGGIUNGI QUESTA LINEA
+
+        if (bDest == null) {
+            // Se non esiste la bacheca di destinazione, mantieni lo stato precedente ma aggiorna i campi
+            bachecaCtrl.notifyChange();
+            return;
+        }
 
         // Se la bacheca è cambiata → sposta il ToDo
         if (bachecaCorrente != null && !bachecaCorrente.equals(bDest)) {

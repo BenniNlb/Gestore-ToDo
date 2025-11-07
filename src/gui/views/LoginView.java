@@ -6,10 +6,10 @@
 // Solo a valle di tale integrazione potremo passare l’utente autenticato
 // al MainController e popolare la UI con i suoi dati personali.
 
-package GUI.Views;
+package gui.views;
 import javax.swing.*;
 import java.awt.*;
-import GUI.ColorsConstant;
+import gui.ColorsConstant;
 
 public class LoginView extends JFrame {
 
@@ -54,11 +54,11 @@ public class LoginView extends JFrame {
 
         usernameField = new JTextField();
         usernameField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
-        usernameField.setBackground(ColorsConstant.PinkFairy);
+        usernameField.setBackground(ColorsConstant.LIGHT_GREY);
         usernameField.setForeground(Color.BLACK);
         usernameField.setCaretColor(Color.BLACK);
         usernameField.setAlignmentX(Component.LEFT_ALIGNMENT);
-        usernameField.setBorder(BorderFactory.createLineBorder(ColorsConstant.Murrey, 1));
+        usernameField.setBorder(BorderFactory.createLineBorder(ColorsConstant.GREY, 1));
         formPanel.add(usernameField);
         formPanel.add(Box.createRigidArea(new Dimension(0, 10)));
 
@@ -72,11 +72,11 @@ public class LoginView extends JFrame {
 
         passwordField = new JPasswordField();
         passwordField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
-        passwordField.setBackground(ColorsConstant.PinkFairy);
+        passwordField.setBackground(ColorsConstant.LIGHT_GREY);
         passwordField.setForeground(Color.BLACK);
         passwordField.setCaretColor(Color.BLACK);
         passwordField.setAlignmentX(Component.LEFT_ALIGNMENT);
-        passwordField.setBorder(BorderFactory.createLineBorder(ColorsConstant.Murrey, 1));
+        passwordField.setBorder(BorderFactory.createLineBorder(ColorsConstant.GREY, 1));
         formPanel.add(passwordField);
         formPanel.add(Box.createRigidArea(new Dimension(0, 15)));
 
@@ -84,7 +84,7 @@ public class LoginView extends JFrame {
         loginButton = new JButton("Enter");
         loginButton.setAlignmentX(Component.LEFT_ALIGNMENT);
         loginButton.setForeground(Color.WHITE);
-        loginButton.setBackground(ColorsConstant.Murrey);
+        loginButton.setBackground(ColorsConstant.GREY);
         loginButton.setFocusPainted(false);
         loginButton.setOpaque(true);
         loginButton.setBorderPainted(false);

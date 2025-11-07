@@ -1,10 +1,12 @@
-package GUI.Panels;
+package gui.panels;
 
-import GUI.Cards.ToDoCard;
-import GUI.ColorsConstant;
-import Model.Bacheca;
-import Model.ToDo;
-import Controllers.MainController;
+import gui.cards.ToDoCard;
+import gui.ColorsConstant;
+import model.Bacheca;
+import model.ToDo;
+import controllers.MainController;
+import gui.dialogs.EditBachecaDialog;
+import gui.dialogs.AddEditToDoDialog;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -13,15 +15,8 @@ import java.awt.dnd.*;
 import java.awt.datatransfer.*;
 import java.util.List;
 
-/**
- * Panel che mostra una singola bacheca e contiene il pannello "list" dove sono inserite
- * le ToDoCard. Su quel pannello è attivo un DropTarget che calcola la posizione di inserimento
- * in base alla y del drop, così si può riordinare all'interno della stessa bacheca oppure
- * spostare tra bacheche.
- */
 public class BachecaPanel extends JPanel {
 
-    // flavor JVM-local per ToDo (uguale a quello usato nelle ToDoCard)
     private static final DataFlavor TODO_FLAVOR;
     static {
         try {
@@ -31,27 +26,105 @@ public class BachecaPanel extends JPanel {
         }
     }
 
+    // Costante per troncare la descrizione
+    private static final int MAX_DESC_CHARS_VIEW = 50;
+
     public BachecaPanel(Bacheca bacheca, MainController mainCtrl, int width, int listHeight) {
         setLayout(new BorderLayout());
         setBackground(Color.WHITE);
         setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(ColorsConstant.Murrey, 1),
+                BorderFactory.createLineBorder(ColorsConstant.GREY, 1),
                 BorderFactory.createEmptyBorder(8, 8, 8, 8)
         ));
 
-        // Header (fuori dallo scroll)
-        JPanel header = new JPanel(new BorderLayout());
+        // --- Header con pulsante Modifica ---
+        JPanel header = new JPanel(new BorderLayout(8, 0));
         header.setBackground(Color.WHITE);
         header.setBorder(new EmptyBorder(6,6,6,6));
+
+        JPanel titleDescPanel = new JPanel(new BorderLayout());
+        titleDescPanel.setOpaque(false);
+
         JLabel title = new JLabel(bacheca.getTitolo().toString());
         title.setFont(new Font("SansSerif", Font.BOLD, 16));
-        JLabel desc = new JLabel(bacheca.getDescrizione() != null ? bacheca.getDescrizione() : "");
-        desc.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        header.add(title, BorderLayout.NORTH);
-        header.add(desc,  BorderLayout.SOUTH);
-        add(header, BorderLayout.NORTH);
 
-        // Body: pannello con BoxLayout che contiene ToDoCard (wrap in JScrollPane)
+        String descText = bacheca.getDescrizione() != null ? bacheca.getDescrizione() : "";
+        descText = troncaTesto(descText, MAX_DESC_CHARS_VIEW);
+
+        JTextArea desc = new JTextArea(descText);
+        desc.setLineWrap(true);
+        desc.setWrapStyleWord(true);
+        desc.setEditable(false);
+        desc.setOpaque(false);
+        desc.setFocusable(false);
+        desc.setBorder(null);
+        desc.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        desc.setForeground(UIManager.getColor("Label.foreground"));
+
+        titleDescPanel.add(title, BorderLayout.NORTH);
+        titleDescPanel.add(desc,  BorderLayout.SOUTH);
+
+        JButton editBtn = new JButton("✏️");
+        editBtn.setMargin(new Insets(2, 6, 2, 6));
+
+        editBtn.addActionListener(e -> {
+            JPopupMenu bachecaMenu = new JPopupMenu();
+
+            // 1. Aggiungi ToDo
+            JMenuItem addAction = new JMenuItem("Aggiungi ToDo...");
+            addAction.addActionListener(ev -> {
+                new AddEditToDoDialog(
+                        (Window) SwingUtilities.getWindowAncestor(this),
+                        mainCtrl,
+                        null,
+                        bacheca.getTitolo()
+                );
+            });
+            bachecaMenu.add(addAction);
+
+            // 2. Modifica Descrizione
+            JMenuItem editAction = new JMenuItem("Modifica Descrizione...");
+            editAction.addActionListener(ev -> {
+                new EditBachecaDialog(
+                        (Window) SwingUtilities.getWindowAncestor(this),
+                        mainCtrl,
+                        bacheca
+                );
+            });
+            bachecaMenu.add(editAction);
+
+            bachecaMenu.addSeparator(); // Separatore
+
+            // 3. Elimina Bacheca
+            JMenuItem deleteAction = new JMenuItem("Elimina Bacheca");
+            deleteAction.setForeground(Color.RED);
+            deleteAction.addActionListener(ev -> {
+                int conf = JOptionPane.showConfirmDialog(
+                        this,
+                        "Eliminare la bacheca \"" + bacheca.getTitolo() + "\"?\n(Tutti i ToDo al suo interno saranno persi)",
+                        "Conferma Eliminazione",
+                        JOptionPane.YES_NO_OPTION,
+                        JOptionPane.WARNING_MESSAGE
+                );
+                if (conf == JOptionPane.YES_OPTION) {
+                    mainCtrl.onDeleteBacheca(bacheca.getTitolo());
+                }
+            });
+            bachecaMenu.add(deleteAction);
+
+            bachecaMenu.show(editBtn, 0, editBtn.getHeight());
+        });
+
+        JPanel editBtnWrapper = new JPanel(new BorderLayout());
+        editBtnWrapper.setOpaque(false);
+        editBtnWrapper.add(editBtn, BorderLayout.NORTH);
+
+        header.add(titleDescPanel, BorderLayout.CENTER);
+        header.add(editBtnWrapper, BorderLayout.EAST);
+        add(header, BorderLayout.NORTH);
+        // --- FINE MODIFICA HEADER ---
+
+        // Body: pannello con BoxLayout
         List<ToDo> todos = bacheca.getToDos();
         if (todos == null || todos.isEmpty()) {
             JLabel empty = new JLabel("Non ci sono ToDo da fare");
@@ -59,65 +132,67 @@ public class BachecaPanel extends JPanel {
             empty.setFont(new Font("SansSerif", Font.ITALIC, 14));
             empty.setForeground(Color.GRAY);
             empty.setBorder(new EmptyBorder(20,20,20,20));
-            // Impostiamo dimensione fissa per mantenere tutte le bacheche uguali
             empty.setPreferredSize(new Dimension(width - 16, listHeight));
             add(empty, BorderLayout.CENTER);
         } else {
-            // Pannello "list" che contiene le card (sul quale registreremo il DropTarget)
+            // Pannello "list" che contiene le card
             JPanel list = new JPanel();
             list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
             list.setBackground(Color.WHITE);
-            list.setBorder(new EmptyBorder(10,10,10,10));
+            list.setBorder(new EmptyBorder(0, 0, 0, 0));
 
-            int cardInnerWidth = width - 32; // consider padding and borders
+            // --- NUOVA RIGA: Aggiunge spazio in cima per il Drop ---
+            list.add(Box.createRigidArea(new Dimension(0, 10)));
+            // --- FINE NUOVA RIGA ---
+
+            int cardInnerWidth = width - 16 - 0;
 
             for (ToDo td : todos) {
-                ToDoCard card = new ToDoCard(td, mainCtrl);
-                card.setAlignmentX(Component.LEFT_ALIGNMENT);
+                ToDoCard card = new ToDoCard(td, mainCtrl, cardInnerWidth, true);
+                card.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-                // Adattiamo la larghezza della card, e fissiamo l'altezza al preferred (così non si allunga)
                 Dimension pref = card.getPreferredSize();
-                card.setPreferredSize(new Dimension(cardInnerWidth, pref.height));
                 card.setMaximumSize(new Dimension(cardInnerWidth, pref.height));
+
                 list.add(card);
                 list.add(Box.createRigidArea(new Dimension(0,8)));
             }
 
+            JPanel listContainer = new JPanel(new BorderLayout());
+            listContainer.setBackground(Color.WHITE);
+            listContainer.add(list, BorderLayout.NORTH);
+
             JScrollPane scroll = new JScrollPane(
-                    list,
+                    listContainer,
                     JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
                     JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
             );
             scroll.setBorder(null);
             scroll.getViewport().setBackground(Color.WHITE);
 
-            // Fissiamo la dimensione del viewport: larghezza fissa e altezza limitata
+            scroll.getVerticalScrollBar().setPreferredSize(new Dimension(0, 0));
+
             scroll.setPreferredSize(new Dimension(width - 16, listHeight));
             add(scroll, BorderLayout.CENTER);
 
-            // ====== DropTarget sul pannello "list" (gestisce reordering / spostamento) ======
+            // ====== DropTarget sul pannello "list" ======
             final JPanel targetList = list;
-            final Controllers.BachecaController bc = mainCtrl.getBachecaController();
+            final JPanel targetContainer = listContainer;
+            final controllers.BachecaController bc = mainCtrl.getBachecaController();
 
-            new DropTarget(targetList, DnDConstants.ACTION_MOVE, new DropTargetAdapter() {
+            new DropTarget(targetContainer, DnDConstants.ACTION_MOVE, new DropTargetAdapter() {
                 @Override
                 public void dragEnter(DropTargetDragEvent dtde) {
                     if (!dtde.isDataFlavorSupported(TODO_FLAVOR)) {
                         dtde.rejectDrag();
                     } else {
-                        // evidenzia leggermente il pannello
-                        targetList.setBorder(BorderFactory.createCompoundBorder(
-                                BorderFactory.createLineBorder(Color.BLUE, 2),
-                                new EmptyBorder(8, 8, 8, 8)
-                        ));
+                        targetContainer.setBorder(BorderFactory.createLineBorder(Color.BLUE, 2));
                     }
                 }
 
                 @Override
                 public void dragExit(DropTargetEvent dte) {
-                    // ripristina
-                    targetList.setBorder(new EmptyBorder(10,10,10,10));
-                    // il bordo esterno è gestito dal container BachecaPanel, quindi lo lasciamo semplice
+                    targetContainer.setBorder(null);
                 }
 
                 @Override
@@ -136,10 +211,12 @@ public class BachecaPanel extends JPanel {
                         }
                         ToDo td = (ToDo) obj;
 
-                        // punto di drop relativo al pannello "list"
-                        Point dropPoint = dtde.getLocation();
+                        Point dropPointOnList = SwingUtilities.convertPoint(
+                                targetContainer,
+                                dtde.getLocation(),
+                                targetList
+                        );
 
-                        // Trova la bacheca sorgente che contiene td (se c'è)
                         Bacheca sorgente = null;
                         for (Bacheca b : bc.getAllBacheche()) {
                             if (b.getToDos().contains(td)) {
@@ -148,61 +225,51 @@ public class BachecaPanel extends JPanel {
                             }
                         }
 
-                        // Calcola indice di inserimento nella bacheca di destinazione (bacheca)
-                        int insertIndex = computeInsertIndex(targetList, dropPoint);
+                        int insertIndex = computeInsertIndex(targetList, dropPointOnList);
 
-                        // Se sorgente == destinazione gestiamo l'offset dovuto alla rimozione
                         if (sorgente != null && sorgente.equals(bacheca)) {
                             int srcIndex = sorgente.getToDos().indexOf(td);
                             if (srcIndex != -1) {
-                                // rimuoviamo temporaneamente
                                 sorgente.rimuoviToDo(td);
-                                // se spostiamo verso il basso e il nuovo indice > srcIndex,
-                                // dobbiamo decrementare insertIndex perché la rimozione sposta gli elementi
                                 if (insertIndex > srcIndex) insertIndex = insertIndex - 1;
                             }
                         } else {
-                            // se td proveniva da altra bacheca, rimuovilo dalla sorgente
                             if (sorgente != null) {
                                 sorgente.rimuoviToDo(td);
                             }
                         }
 
-                        // Limiti
                         if (insertIndex < 0) insertIndex = 0;
                         if (insertIndex > bacheca.getToDos().size()) insertIndex = bacheca.getToDos().size();
 
-                        // Inserisci nella posizione calcolata
                         bacheca.getToDos().add(insertIndex, td);
 
-                        // Notifica e conclude drop
                         bc.notifyChange();
                         dtde.dropComplete(true);
                     } catch (Exception ex) {
                         ex.printStackTrace();
                         try { dtde.dropComplete(false); } catch (Exception ignored) {}
                     } finally {
-                        // ripristina bordo
-                        targetList.setBorder(new EmptyBorder(10,10,10,10));
+                        targetContainer.setBorder(null);
                     }
                 }
             }, true);
         }
 
-        // Impostiamo dimensioni complessive della bacheca
         int totalHeight = listHeight + header.getPreferredSize().height + 32;
         setPreferredSize(new Dimension(width, totalHeight));
     }
 
-    /**
-     * Calcola l'indice di inserimento nella lista (basato sulle ToDoCard presenti)
-     * confrontando la y del drop con i centri verticali delle card.
-     */
+    private String troncaTesto(String testo, int maxLen) {
+        if (testo == null) return "";
+        return testo.length() > maxLen ? testo.substring(0, maxLen) + "…" : testo;
+    }
+
     private int computeInsertIndex(JPanel listPanel, Point dropPoint) {
         Component[] comps = listPanel.getComponents();
         int index = 0;
         for (Component c : comps) {
-            if (!(c instanceof ToDoCard)) continue; // ignora gli spacer
+            if (!(c instanceof ToDoCard)) continue;
             Rectangle r = c.getBounds();
             int centerY = r.y + r.height / 2;
             if (dropPoint.y < centerY) {
@@ -210,7 +277,6 @@ public class BachecaPanel extends JPanel {
             }
             index++;
         }
-        // se non trovato, inserisci in coda
         return index;
     }
 }

@@ -1,9 +1,9 @@
-package GUI.Panels;
+package gui.panels;
 
-import GUI.Cards.ToDoCard;
-import Controllers.MainController;
-import Model.ToDo;
-import GUI.ColorsConstant;
+import gui.cards.ToDoCard;
+import controllers.MainController;
+import model.ToDo;
+import gui.ColorsConstant;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -13,11 +13,11 @@ import java.util.List;
 
 public class InScadenzaPanel extends JPanel {
 
-    public InScadenzaPanel(MainController mainCtrl) {
+    public InScadenzaPanel(MainController mainCtrl, int panelWidth) {
         setLayout(new BorderLayout());
         setBackground(Color.WHITE);
         setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(ColorsConstant.Murrey, 1),
+                BorderFactory.createLineBorder(ColorsConstant.GREY, 1),
                 BorderFactory.createEmptyBorder(8,8,8,8)
         ));
 
@@ -26,7 +26,6 @@ public class InScadenzaPanel extends JPanel {
         header.setBorder(new EmptyBorder(6,6,6,6));
         add(header, BorderLayout.NORTH);
 
-        // Prendo i ToDo in scadenza oggi tramite il controller principale
         List<ToDo> scadOggiRaw = mainCtrl.getScadenzeOggi();
         List<ToDo> scadOggi = deduplicateById(scadOggiRaw);
 
@@ -41,20 +40,39 @@ public class InScadenzaPanel extends JPanel {
             JPanel list = new JPanel();
             list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
             list.setBackground(Color.WHITE);
-            list.setBorder(new EmptyBorder(10,10,10,10));
+            list.setBorder(new EmptyBorder(0, 0, 0, 0));
+
+            // --- NUOVA RIGA: Aggiunge spazio in cima ---
+            list.add(Box.createRigidArea(new Dimension(0, 10)));
+            // --- FINE NUOVA RIGA ---
+
+            int cardWidth = panelWidth - 16 - 0;
+
             for (ToDo td : scadOggi) {
-                ToDoCard card = new ToDoCard(td, mainCtrl);
-                card.setAlignmentX(Component.LEFT_ALIGNMENT);
+                ToDoCard card = new ToDoCard(td, mainCtrl, cardWidth, false);
+                card.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+                Dimension pref = card.getPreferredSize();
+                card.setMaximumSize(new Dimension(cardWidth, pref.height));
+
                 list.add(card);
                 list.add(Box.createRigidArea(new Dimension(0,8)));
             }
+
+            JPanel listContainer = new JPanel(new BorderLayout());
+            listContainer.setBackground(Color.WHITE);
+            listContainer.add(list, BorderLayout.NORTH);
+
             JScrollPane scroll = new JScrollPane(
-                    list,
+                    listContainer,
                     JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
                     JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
             );
             scroll.setBorder(null);
             scroll.getViewport().setBackground(Color.WHITE);
+
+            scroll.getVerticalScrollBar().setPreferredSize(new Dimension(0, 0));
+
             add(scroll, BorderLayout.CENTER);
         }
     }
