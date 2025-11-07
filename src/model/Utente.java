@@ -1,4 +1,4 @@
-package Model;
+package model;
 
 // La classe Utente rappresenta un account personale nel sistema.
 // Ogni utente ha un ID univoco, un login (nome utente) e una password.

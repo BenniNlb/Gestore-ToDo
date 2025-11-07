@@ -1,11 +1,11 @@
-package Controllers;
+package controllers;
 
-import Model.ToDo;
-import Model.TitoloBacheca;
+import model.ToDo;
+import model.TitoloBacheca;
+import model.Bacheca;
 
 import java.awt.Color;
 import java.time.LocalDate;
-import java.util.List;
 import javax.swing.ImageIcon;
 
 public class MainController {
@@ -24,6 +24,10 @@ public class MainController {
 
     public ToDoController getToDoController() {
         return todoCtrl;
+    }
+
+    public void onEditBachecaDescrizione(TitoloBacheca titolo, String nuovaDescrizione) {
+        bachecaCtrl.modificaDescrizioneBacheca(titolo, nuovaDescrizione);
     }
 
     /** Azioni delegate dal CardChoice (aggiornata per lista di link e immagine) **/
@@ -54,18 +58,26 @@ public class MainController {
     }
 
     /** Metodo per modificare un ToDo (aggiornato) */
-    // MODIFICATO: ora riceve anche la bacheca di destinazione
     public void onEditToDo(ToDo td,
                            String nuovoTitolo,
                            LocalDate nuovaData,
                            java.util.List<String> nuoviLink,
                            String nuovaDescrizione,
                            ImageIcon nuovaImmagine,
-                           TitoloBacheca nuovaBacheca) {
-        todoCtrl.modificaToDo(td, nuovoTitolo, nuovaData, nuoviLink, nuovaDescrizione, nuovaImmagine, nuovaBacheca);
+                           TitoloBacheca nuovaBacheca,
+                           Color nuovoColore) {
+        todoCtrl.modificaToDo(td, nuovoTitolo, nuovaData, nuoviLink, nuovaDescrizione, nuovaImmagine, nuovaBacheca, nuovoColore);
     }
 
     public java.util.List<ToDo> getScadenzeOggi() {
         return todoCtrl.getToDoByDate(LocalDate.now());
     }
+
+    // --- METODO MODIFICATO ---
+    // Questo metodo ora chiama getToDoByDate (che cerca una data esatta)
+    // invece di getToDoEntroData
+    public java.util.List<ToDo> getScadenzePerData(LocalDate date) {
+        return todoCtrl.getToDoByDate(date); //
+    }
+    // --- FINE MODIFICA ---
 }

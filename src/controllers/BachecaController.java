@@ -1,7 +1,7 @@
-package Controllers;
+package controllers;
 
-import Model.Bacheca;
-import Model.TitoloBacheca;
+import model.Bacheca;
+import model.TitoloBacheca;
 
 import java.util.*;
 
@@ -83,6 +83,19 @@ public class BachecaController {
         notifyListeners();
     }
 
+
+    // --- NUOVO METODO ---
+    /**
+     * Aggiorna la descrizione di una bacheca esistente e notifica i listener.
+     */
+    public void modificaDescrizioneBacheca(TitoloBacheca titolo, String nuovaDescrizione) {
+        Bacheca b = getBacheca(titolo);
+        if (b != null) {
+            b.setDescrizione(nuovaDescrizione != null ? nuovaDescrizione : "");
+            notifyListeners(); // Aggiorna la UI
+        }
+    }
+    // --- FINE NUOVO METODO ---
 
     /**
      * Metodo pubblico per forzare la notifica ai listener registrati.
