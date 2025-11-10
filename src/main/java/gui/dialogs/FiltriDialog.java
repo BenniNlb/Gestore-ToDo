@@ -1,7 +1,7 @@
 package gui.dialogs;
 
 import controllers.MainController;
-import gui.ColorsConstant;
+import util.ColorsConstant;
 import gui.views.MainView;
 
 import javax.swing.*;

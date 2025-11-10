@@ -3,7 +3,7 @@ package gui.panels;
 import gui.cards.ToDoCard;
 import controllers.MainController;
 import model.ToDo;
-import gui.ColorsConstant;
+import util.ColorsConstant;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -26,6 +26,7 @@ public class InScadenzaPanel extends JPanel {
         header.setBorder(new EmptyBorder(6,6,6,6));
         add(header, BorderLayout.NORTH);
 
+        // Prendo i ToDo in scadenza oggi tramite il controller principale
         List<ToDo> scadOggiRaw = mainCtrl.getScadenzeOggi();
         List<ToDo> scadOggi = deduplicateById(scadOggiRaw);
 
@@ -42,9 +43,8 @@ public class InScadenzaPanel extends JPanel {
             list.setBackground(Color.WHITE);
             list.setBorder(new EmptyBorder(0, 0, 0, 0));
 
-            // --- NUOVA RIGA: Aggiunge spazio in cima ---
+            // Aggiunge spazio in cima per il Drop
             list.add(Box.createRigidArea(new Dimension(0, 10)));
-            // --- FINE NUOVA RIGA ---
 
             int cardWidth = panelWidth - 16 - 0;
 
@@ -77,18 +77,25 @@ public class InScadenzaPanel extends JPanel {
         }
     }
 
+    // --- METODO MODIFICATO ---
+    // Sostituisce UUID con Integer
     private List<ToDo> deduplicateById(List<ToDo> list) {
         if (list == null) return Collections.emptyList();
-        Map<UUID, ToDo> map = new LinkedHashMap<>();
+
+        Map<Integer, ToDo> map = new LinkedHashMap<>();
+
         for (ToDo td : list) {
             if (td == null) continue;
-            UUID id = td.getIdToDo();
-            if (id == null) {
-                map.put(UUID.randomUUID(), td);
+
+            int id = td.getIdToDo();
+
+            if (id == 0) {
+                map.put(new java.util.Random().nextInt(), td);
             } else {
                 map.putIfAbsent(id, td);
             }
         }
         return new ArrayList<>(map.values());
     }
+    // --- FINE MODIFICA ---
 }

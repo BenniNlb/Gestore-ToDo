@@ -2,7 +2,7 @@ package gui.dialogs;
 
 import controllers.MainController;
 import model.TitoloBacheca;
-import gui.ColorsConstant; // Importa i colori
+import util.ColorsConstant; // Importa i colori
 
 import javax.swing.*;
 import java.awt.*;

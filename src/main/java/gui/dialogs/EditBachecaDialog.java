@@ -2,7 +2,7 @@ package gui.dialogs;
 
 import controllers.MainController;
 import model.Bacheca;
-import gui.ColorsConstant;
+import util.ColorsConstant;
 
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;

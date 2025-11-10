@@ -1,26 +1,43 @@
 package controllers;
 
+import dao.ToDoDAO;
+import dao.postgresimpl.PostgresToDoDAO;
 import model.ToDo;
 import model.Bacheca;
 import model.TitoloBacheca;
+import model.Utente;
 
 import java.awt.Color;
 import java.time.LocalDate;
 import java.util.*;
-import java.util.stream.Collectors;
 import javax.swing.ImageIcon;
 
 public class ToDoController {
 
     private final BachecaController bachecaCtrl;
+    private final Utente utenteLoggato;
 
-    public ToDoController(BachecaController bCtrl) {
+    private final ToDoDAO todoDAO;
+
+    public ToDoController(Utente utente, BachecaController bCtrl) {
+        this.utenteLoggato = utente;
         this.bachecaCtrl = bCtrl;
+        this.todoDAO = new PostgresToDoDAO();
+
+        // Carica i ToDo per ogni bacheca
+        loadToDosFromDB();
     }
 
     /**
-     * Ora accetta una lista di link e un'ImageIcon opzionale.
+     * Carica i ToDo dal DB per ogni bacheca gestita dal BachecaController.
      */
+    private void loadToDosFromDB() {
+        for (Bacheca b : bachecaCtrl.getAllBacheche()) {
+            List<ToDo> toDos = todoDAO.getAllToDosByBacheca(b.getIdBacheca());
+            b.setToDos(toDos); // "Idrata" il modello in memoria
+        }
+    }
+
     public ToDo creaToDo(TitoloBacheca inBacheca,
                          String titolo,
                          LocalDate dataScadenza,
@@ -33,22 +50,32 @@ public class ToDoController {
         if (dataScadenza == null)
             throw new IllegalArgumentException("Data scadenza obbligatoria");
 
-        ToDo td = new ToDo(titolo);
+        Bacheca b = bachecaCtrl.getBacheca(inBacheca);
+        if (b == null) throw new IllegalArgumentException("Bacheca di destinazione non trovata: " + inBacheca);
+
+        // --- MODIFICATO: Costruttore ToDo aggiornato ---
+        // Passa l'ID della bacheca e l'ID utente reale
+        ToDo td = new ToDo(titolo, b.getIdBacheca(), utenteLoggato.getIdUtente());
+        // --- FINE MODIFICA ---
+
         td.setDataScadenza(dataScadenza);
         td.setLinkURLs(linkURLs);
         td.setDescrizione(descrizione);
         td.setColoreSfondo(coloreSfondo);
         td.setImmagine(immagine);
 
-        Bacheca b = bachecaCtrl.getBacheca(inBacheca);
-        if (b == null) throw new IllegalArgumentException("Bacheca di destinazione non trovata: " + inBacheca);
-        b.aggiungiToDo(td);
+        todoDAO.addToDo(td); // Salva su DB (questo imposta anche l'ID sul ToDo)
+
+        b.aggiungiToDo(td); // Aggiunge al modello in memoria
 
         bachecaCtrl.notifyChange();
         return td;
     }
 
     public void eliminaToDo(ToDo td) {
+        todoDAO.deleteToDo(td.getIdToDo()); // Elimina da DB
+
+        // Rimuovi da modello in memoria
         for (Bacheca b : bachecaCtrl.getAllBacheche()) {
             b.rimuoviToDo(td);
         }
@@ -57,44 +84,28 @@ public class ToDoController {
 
     public void setCompletato(ToDo td, boolean completato) {
         td.setCompletato(completato);
+        todoDAO.updateToDo(td); // Salva stato su DB
         bachecaCtrl.notifyChange();
     }
 
     public List<ToDo> getToDoByDate(LocalDate date) {
-        List<ToDo> result = new ArrayList<>();
-        for (Bacheca b : bachecaCtrl.getAllBacheche()) {
-            for (ToDo td : b.getToDos()) {
-                if (date != null && date.equals(td.getDataScadenza())) {
-                    result.add(td);
-                }
-            }
-        }
-        return result;
+        // Ora usa il DAO e l'utente loggato
+        return todoDAO.getToDosByDate(utenteLoggato.getIdUtente(), date);
     }
 
     public List<ToDo> getAllToDos() {
         List<ToDo> all = new ArrayList<>();
         for (Bacheca b : bachecaCtrl.getAllBacheche()) {
-            all.addAll(b.getToDos());
+            all.addAll(b.getToDos()); // Usa dati in memoria (già caricati)
         }
         return all;
     }
 
     public List<ToDo> searchToDo(String query) {
-        if (query == null || query.trim().isEmpty())
-            return new ArrayList<>();
-
-        String q = query.toLowerCase(Locale.ROOT);
-        return getAllToDos().stream()
-                .filter(td ->
-                        (td.getTitolo() != null && td.getTitolo().toLowerCase().contains(q)) ||
-                                (td.getDescrizione() != null && td.getDescrizione().toLowerCase().contains(q)) ||
-                                (td.getLinkURLs() != null && td.getLinkURLs().stream().anyMatch(l -> l.toLowerCase().contains(q)))
-                )
-                .collect(Collectors.toList());
+        // Ora usa il DAO e l'utente loggato
+        return todoDAO.searchToDos(utenteLoggato.getIdUtente(), query);
     }
 
-    /** Modifica: ora permette anche di aggiornare link, immagine, bacheca E COLORE */
     public void modificaToDo(ToDo td,
                              String nuovoTitolo,
                              LocalDate nuovaData,
@@ -102,28 +113,27 @@ public class ToDoController {
                              String nuovaDescrizione,
                              ImageIcon nuovaImmagine,
                              TitoloBacheca nuovaBacheca,
-                             Color nuovoColore) { // <-- 1. AGGIUNGI QUESTO PARAMETRO
+                             Color nuovoColore) {
         if (td == null) throw new IllegalArgumentException("ToDo nullo");
 
-        // Trova la bacheca corrente che contiene il ToDo (se esiste)
         Bacheca bachecaCorrente = bachecaCtrl.getAllBacheche().stream()
                 .filter(b -> b.getToDos().contains(td))
                 .findFirst()
                 .orElse(null);
 
-        // Trova la bacheca di destinazione
         Bacheca bDest = bachecaCtrl.getBacheca(nuovaBacheca);
 
-        // Aggiorna i campi del ToDo
         td.setTitolo(nuovoTitolo);
         td.setDataScadenza(nuovaData);
         td.setLinkURLs(nuoviLink);
         td.setDescrizione(nuovaDescrizione);
         td.setImmagine(nuovaImmagine);
-        td.setColoreSfondo(nuovoColore); // <-- 2. AGGIUNGI QUESTA LINEA
+        td.setColoreSfondo(nuovoColore);
 
         if (bDest == null) {
-            // Se non esiste la bacheca di destinazione, mantieni lo stato precedente ma aggiorna i campi
+            // L'utente ha selezionato una bacheca non valida? Non dovrebbe succedere
+            // Salva solo le modifiche al ToDo
+            todoDAO.updateToDo(td);
             bachecaCtrl.notifyChange();
             return;
         }
@@ -131,12 +141,14 @@ public class ToDoController {
         // Se la bacheca è cambiata → sposta il ToDo
         if (bachecaCorrente != null && !bachecaCorrente.equals(bDest)) {
             bachecaCorrente.rimuoviToDo(td);
+            td.setIdBacheca(bDest.getIdBacheca()); // Aggiorna l'ID bacheca nel ToDo
             bDest.aggiungiToDo(td);
         } else if (bachecaCorrente == null) {
-            // Se non era in nessuna bacheca (improbabile), aggiungilo comunque
+            td.setIdBacheca(bDest.getIdBacheca());
             bDest.aggiungiToDo(td);
         }
 
+        todoDAO.updateToDo(td); // Salva modifiche (inclusa nuova bacheca) su DB
         bachecaCtrl.notifyChange();
     }
 }
