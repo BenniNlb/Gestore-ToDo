@@ -3,20 +3,27 @@ package controllers;
 import model.ToDo;
 import model.TitoloBacheca;
 import model.Bacheca;
+import model.Utente; // IMPORTA UTENTE
 
 import java.awt.Color;
 import java.time.LocalDate;
 import javax.swing.ImageIcon;
+import java.util.List; // IMPORTA LIST
 
 public class MainController {
 
     private final BachecaController bachecaCtrl;
     private final ToDoController todoCtrl;
+    private final Utente utenteLoggato; // NUOVO
 
-    public MainController() {
-        this.bachecaCtrl = new BachecaController();
-        this.todoCtrl = new ToDoController(bachecaCtrl);
+    // --- MODIFICATO: Il costruttore accetta l'Utente ---
+    public MainController(Utente utente) {
+        this.utenteLoggato = utente;
+        // Passa l'utente ai controller figli
+        this.bachecaCtrl = new BachecaController(utenteLoggato);
+        this.todoCtrl = new ToDoController(utenteLoggato, bachecaCtrl);
     }
+    // --- FINE MODIFICA ---
 
     public BachecaController getBachecaController() {
         return bachecaCtrl;
@@ -30,7 +37,7 @@ public class MainController {
         bachecaCtrl.modificaDescrizioneBacheca(titolo, nuovaDescrizione);
     }
 
-    /** Azioni delegate dal CardChoice (aggiornata per lista di link e immagine) **/
+    /** Azioni delegate (aggiornate per lista di link e immagine) **/
     public void onAddToDo(String titolo,
                           LocalDate data,
                           java.util.List<String> linkURLs,
@@ -65,7 +72,7 @@ public class MainController {
                            String nuovaDescrizione,
                            ImageIcon nuovaImmagine,
                            TitoloBacheca nuovaBacheca,
-                           Color nuovoColore) {
+                           Color nuovoColore) { // Aggiunto colore
         todoCtrl.modificaToDo(td, nuovoTitolo, nuovaData, nuoviLink, nuovaDescrizione, nuovaImmagine, nuovaBacheca, nuovoColore);
     }
 
@@ -73,11 +80,7 @@ public class MainController {
         return todoCtrl.getToDoByDate(LocalDate.now());
     }
 
-    // --- METODO MODIFICATO ---
-    // Questo metodo ora chiama getToDoByDate (che cerca una data esatta)
-    // invece di getToDoEntroData
     public java.util.List<ToDo> getScadenzePerData(LocalDate date) {
-        return todoCtrl.getToDoByDate(date); //
+        return todoCtrl.getToDoByDate(date);
     }
-    // --- FINE MODIFICA ---
 }

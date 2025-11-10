@@ -1,12 +1,15 @@
 package gui.views;
 
 import controllers.MainController;
-import gui.panels.*;
+import gui.panels.BachecaPanel;
+import gui.panels.InScadenzaPanel;
+import gui.panels.WrapPanel;
 import gui.dialogs.AddBachecaDialog;
 import model.Bacheca;
 import model.TitoloBacheca;
 import model.ToDo;
-import gui.ColorsConstant;
+import model.Utente; // IMPORTA UTENTE
+import util.ColorsConstant;
 
 import javax.swing.*;
 import java.awt.*;
@@ -24,6 +27,9 @@ public class MainView extends JFrame {
     private final JTextField searchField;
     private final JPanel top; // header panel
 
+    // Riferimento all'utente che ha fatto il login
+    private final Utente utenteLoggato;
+
     // Parametri configurabili
     private static final int MIN_BACHECA_WIDTH = 260;
     private static final int MAX_BACHECA_WIDTH = 520;
@@ -32,13 +38,18 @@ public class MainView extends JFrame {
     // Stato per la visibilità del pannello Scadenze
     private boolean showInScadenza = true;
 
-    public MainView() {
-        mainCtrl = new MainController();
+    // --- MODIFICATO: Il costruttore accetta l'Utente ---
+    public MainView(Utente utente) {
+        this.utenteLoggato = utente; // Salva l'utente
+
+        // Passa l'utente al controller
+        mainCtrl = new MainController(utenteLoggato);
+
         try {
             mainCtrl.getBachecaController().addChangeListener(this::refreshCenter);
         } catch (Exception ignored) {}
 
-        setTitle("Gestore ToDo");
+        setTitle("Gestore ToDo - (" + utenteLoggato.getUsername() + ")"); // Mostra l'utente
         setSize(1200, 700);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
@@ -88,7 +99,6 @@ public class MainView extends JFrame {
         searchPanel.add(filtriBtn, BorderLayout.EAST);
 
         top.add(searchPanel, BorderLayout.CENTER);
-        // --- FINE MODIFICA TOP ---
 
         add(top, BorderLayout.NORTH);
 
@@ -111,6 +121,7 @@ public class MainView extends JFrame {
         refreshCenter();
         setVisible(true);
     }
+    // --- FINE COSTRUTTORE MODIFICATO ---
 
     /**
      * Ricostruisce la schermata principale con larghezze reattive.
@@ -201,7 +212,6 @@ public class MainView extends JFrame {
         java.util.List<ToDo> found = mainCtrl.getScadenzePerData(endDate);
         showSearchResults(found, "ToDo in scadenza il: " + q);
     }
-    // --- FINE METODI RICERCA ---
 
     // Metodo helper per mostrare i risultati
     private void showSearchResults(java.util.List<ToDo> found, String titleText) {
@@ -229,18 +239,12 @@ public class MainView extends JFrame {
             no.setForeground(Color.GRAY);
             centerPanel.add(no, BorderLayout.CENTER);
         } else {
-            // --- MODIFICATO: Usa il nuovo WrapPanel ---
-
             WrapPanel results = new WrapPanel();
             results.setBackground(Color.WHITE);
             results.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
             int cardWidth = 300;
             if (cardWidth < MIN_BACHECA_WIDTH) cardWidth = MIN_BACHECA_WIDTH;
-
-            // --- NUOVA RIGA: Aggiunge spazio in cima (per coerenza) ---
-            // results.add(Box.createRigidArea(new Dimension(0, 10))); // In realtà non serve in FlowLayout
-            // --- FINE NUOVA RIGA ---
 
             for (ToDo td : found) {
                 gui.cards.ToDoCard card = new gui.cards.ToDoCard(td, mainCtrl, cardWidth, false);
@@ -262,7 +266,6 @@ public class MainView extends JFrame {
             resultsScrollPane.getVerticalScrollBar().setPreferredSize(new Dimension(0, 0));
 
             centerPanel.add(resultsScrollPane, BorderLayout.CENTER);
-            // --- FINE MODIFICA ---
         }
 
         centerPanel.revalidate();
@@ -340,13 +343,5 @@ public class MainView extends JFrame {
 
     // --- FINE METODI HELPER ---
 
-    public static void main(String[] args) {
-        try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        SwingUtilities.invokeLater(MainView::new);
-    }
+    // --- METODO MAIN RIMOSSO ---
 }

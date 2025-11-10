@@ -1,12 +1,11 @@
 package gui.panels;
 
 import gui.cards.ToDoCard;
-import gui.ColorsConstant;
+import util.ColorsConstant;
 import model.Bacheca;
 import model.ToDo;
-import controllers.MainController;
-import gui.dialogs.EditBachecaDialog;
-import gui.dialogs.AddEditToDoDialog;
+import controllers.*;
+import gui.dialogs.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -64,7 +63,7 @@ public class BachecaPanel extends JPanel {
         titleDescPanel.add(title, BorderLayout.NORTH);
         titleDescPanel.add(desc,  BorderLayout.SOUTH);
 
-        JButton editBtn = new JButton("✏️");
+        JButton editBtn = new JButton("✏");
         editBtn.setMargin(new Insets(2, 6, 2, 6));
 
         editBtn.addActionListener(e -> {
