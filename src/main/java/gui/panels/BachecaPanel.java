@@ -1,11 +1,14 @@
 package gui.panels;
 
+import controllers.BachecaController;
 import gui.cards.ToDoCard;
 import util.ColorsConstant;
+// Rimosso import IconUtils
 import model.Bacheca;
 import model.ToDo;
-import controllers.*;
-import gui.dialogs.*;
+import controllers.MainController;
+import gui.dialogs.EditBachecaDialog;
+import gui.dialogs.AddEditToDoDialog;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -30,15 +33,13 @@ public class BachecaPanel extends JPanel {
 
     public BachecaPanel(Bacheca bacheca, MainController mainCtrl, int width, int listHeight) {
         setLayout(new BorderLayout());
-        setBackground(Color.WHITE);
-        setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(ColorsConstant.GREY, 1),
-                BorderFactory.createEmptyBorder(8, 8, 8, 8)
-        ));
+
+        setBackground(ColorsConstant.LIGHT_GREY);
+        setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
 
         // --- Header con pulsante Modifica ---
         JPanel header = new JPanel(new BorderLayout(8, 0));
-        header.setBackground(Color.WHITE);
+        header.setBackground(ColorsConstant.LIGHT_GREY);
         header.setBorder(new EmptyBorder(6,6,6,6));
 
         JPanel titleDescPanel = new JPanel(new BorderLayout());
@@ -64,25 +65,29 @@ public class BachecaPanel extends JPanel {
         titleDescPanel.add(desc,  BorderLayout.SOUTH);
 
         JButton editBtn = new JButton("✏");
-        editBtn.setMargin(new Insets(2, 6, 2, 6));
+        editBtn.setFont(new Font("SansSerif", Font.PLAIN, 18));
+        editBtn.setToolTipText("Opzioni bacheca");
 
         editBtn.addActionListener(e -> {
             JPopupMenu bachecaMenu = new JPopupMenu();
 
             // 1. Aggiungi ToDo
-            JMenuItem addAction = new JMenuItem("Aggiungi ToDo...");
+            JMenuItem addAction = new JMenuItem("Aggiungi ToDo");
             addAction.addActionListener(ev -> {
+                // --- MODIFICA: Chiamata con boolean ---
                 new AddEditToDoDialog(
                         (Window) SwingUtilities.getWindowAncestor(this),
                         mainCtrl,
-                        null,
-                        bacheca.getTitolo()
+                        null, // Nuovo ToDo
+                        bacheca.getTitolo(), // Bacheca di default
+                        true // true = Dettagli
                 );
+                // --- FINE MODIFICA ---
             });
             bachecaMenu.add(addAction);
 
             // 2. Modifica Descrizione
-            JMenuItem editAction = new JMenuItem("Modifica Descrizione...");
+            JMenuItem editAction = new JMenuItem("Modifica Descrizione");
             editAction.addActionListener(ev -> {
                 new EditBachecaDialog(
                         (Window) SwingUtilities.getWindowAncestor(this),
@@ -92,7 +97,7 @@ public class BachecaPanel extends JPanel {
             });
             bachecaMenu.add(editAction);
 
-            bachecaMenu.addSeparator(); // Separatore
+            bachecaMenu.addSeparator();
 
             // 3. Elimina Bacheca
             JMenuItem deleteAction = new JMenuItem("Elimina Bacheca");
@@ -134,15 +139,12 @@ public class BachecaPanel extends JPanel {
             empty.setPreferredSize(new Dimension(width - 16, listHeight));
             add(empty, BorderLayout.CENTER);
         } else {
-            // Pannello "list" che contiene le card
             JPanel list = new JPanel();
             list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
-            list.setBackground(Color.WHITE);
+            list.setBackground(ColorsConstant.LIGHT_GREY);
             list.setBorder(new EmptyBorder(0, 0, 0, 0));
 
-            // --- NUOVA RIGA: Aggiunge spazio in cima per il Drop ---
             list.add(Box.createRigidArea(new Dimension(0, 10)));
-            // --- FINE NUOVA RIGA ---
 
             int cardInnerWidth = width - 16 - 0;
 
@@ -150,15 +152,14 @@ public class BachecaPanel extends JPanel {
                 ToDoCard card = new ToDoCard(td, mainCtrl, cardInnerWidth, true);
                 card.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-                Dimension pref = card.getPreferredSize();
-                card.setMaximumSize(new Dimension(cardInnerWidth, pref.height));
+                card.setMaximumSize(new Dimension(cardInnerWidth, Integer.MAX_VALUE));
 
                 list.add(card);
                 list.add(Box.createRigidArea(new Dimension(0,8)));
             }
 
             JPanel listContainer = new JPanel(new BorderLayout());
-            listContainer.setBackground(Color.WHITE);
+            listContainer.setBackground(ColorsConstant.LIGHT_GREY);
             listContainer.add(list, BorderLayout.NORTH);
 
             JScrollPane scroll = new JScrollPane(
@@ -167,7 +168,7 @@ public class BachecaPanel extends JPanel {
                     JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
             );
             scroll.setBorder(null);
-            scroll.getViewport().setBackground(Color.WHITE);
+            scroll.getViewport().setBackground(ColorsConstant.LIGHT_GREY);
 
             scroll.getVerticalScrollBar().setPreferredSize(new Dimension(0, 0));
 
@@ -177,7 +178,7 @@ public class BachecaPanel extends JPanel {
             // ====== DropTarget sul pannello "list" ======
             final JPanel targetList = list;
             final JPanel targetContainer = listContainer;
-            final controllers.BachecaController bc = mainCtrl.getBachecaController();
+            final BachecaController bc = mainCtrl.getBachecaController();
 
             new DropTarget(targetContainer, DnDConstants.ACTION_MOVE, new DropTargetAdapter() {
                 @Override
@@ -243,6 +244,11 @@ public class BachecaPanel extends JPanel {
 
                         bacheca.getToDos().add(insertIndex, td);
 
+                        mainCtrl.onSalvaOrdineBacheca(bacheca);
+                        if (sorgente != null && !sorgente.equals(bacheca)) {
+                            mainCtrl.onSalvaOrdineBacheca(sorgente);
+                        }
+
                         bc.notifyChange();
                         dtde.dropComplete(true);
                     } catch (Exception ex) {
@@ -268,7 +274,9 @@ public class BachecaPanel extends JPanel {
         Component[] comps = listPanel.getComponents();
         int index = 0;
         for (Component c : comps) {
+            if (index == 0 && c instanceof Box.Filler) continue;
             if (!(c instanceof ToDoCard)) continue;
+
             Rectangle r = c.getBounds();
             int centerY = r.y + r.height / 2;
             if (dropPoint.y < centerY) {

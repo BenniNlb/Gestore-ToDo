@@ -15,18 +15,17 @@ public class InScadenzaPanel extends JPanel {
 
     public InScadenzaPanel(MainController mainCtrl, int panelWidth) {
         setLayout(new BorderLayout());
-        setBackground(Color.WHITE);
-        setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(ColorsConstant.GREY, 1),
-                BorderFactory.createEmptyBorder(8,8,8,8)
-        ));
+
+        // --- Sfondo Grigio e Bordo Rimosso (come richiesto) ---
+        setBackground(ColorsConstant.LIGHT_GREY);
+        setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        // --- FINE MODIFICHE ---
 
         JLabel header = new JLabel("Scadenze di oggi");
         header.setFont(new Font("SansSerif", Font.BOLD, 18));
         header.setBorder(new EmptyBorder(6,6,6,6));
         add(header, BorderLayout.NORTH);
 
-        // Prendo i ToDo in scadenza oggi tramite il controller principale
         List<ToDo> scadOggiRaw = mainCtrl.getScadenzeOggi();
         List<ToDo> scadOggi = deduplicateById(scadOggiRaw);
 
@@ -40,10 +39,9 @@ public class InScadenzaPanel extends JPanel {
         } else {
             JPanel list = new JPanel();
             list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
-            list.setBackground(Color.WHITE);
+            list.setBackground(ColorsConstant.LIGHT_GREY);
             list.setBorder(new EmptyBorder(0, 0, 0, 0));
 
-            // Aggiunge spazio in cima per il Drop
             list.add(Box.createRigidArea(new Dimension(0, 10)));
 
             int cardWidth = panelWidth - 16 - 0;
@@ -52,15 +50,14 @@ public class InScadenzaPanel extends JPanel {
                 ToDoCard card = new ToDoCard(td, mainCtrl, cardWidth, false);
                 card.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-                Dimension pref = card.getPreferredSize();
-                card.setMaximumSize(new Dimension(cardWidth, pref.height));
+                card.setMaximumSize(new Dimension(cardWidth, Integer.MAX_VALUE));
 
                 list.add(card);
                 list.add(Box.createRigidArea(new Dimension(0,8)));
             }
 
             JPanel listContainer = new JPanel(new BorderLayout());
-            listContainer.setBackground(Color.WHITE);
+            listContainer.setBackground(ColorsConstant.LIGHT_GREY);
             listContainer.add(list, BorderLayout.NORTH);
 
             JScrollPane scroll = new JScrollPane(
@@ -69,7 +66,7 @@ public class InScadenzaPanel extends JPanel {
                     JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
             );
             scroll.setBorder(null);
-            scroll.getViewport().setBackground(Color.WHITE);
+            scroll.getViewport().setBackground(ColorsConstant.LIGHT_GREY);
 
             scroll.getVerticalScrollBar().setPreferredSize(new Dimension(0, 0));
 
@@ -77,8 +74,6 @@ public class InScadenzaPanel extends JPanel {
         }
     }
 
-    // --- METODO MODIFICATO ---
-    // Sostituisce UUID con Integer
     private List<ToDo> deduplicateById(List<ToDo> list) {
         if (list == null) return Collections.emptyList();
 
@@ -97,5 +92,4 @@ public class InScadenzaPanel extends JPanel {
         }
         return new ArrayList<>(map.values());
     }
-    // --- FINE MODIFICA ---
 }

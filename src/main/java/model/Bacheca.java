@@ -2,7 +2,6 @@ package model;
 
 import java.util.ArrayList;
 import java.util.List;
-// Rimosso import java.util.UUID;
 
 public class Bacheca {
     private int idBacheca;
@@ -10,14 +9,16 @@ public class Bacheca {
     private String descrizione;
     private int idUtente; // A quale utente appartiene
     private List<ToDo> toDos;
+    private int posizioneB; // --- MODIFICA: Rinominato in posizioneB ---
 
     /**
      * Costruttore per una NUOVA bacheca.
      */
-    public Bacheca(TitoloBacheca titolo, String descrizione, int idUtente) {
+    public Bacheca(TitoloBacheca titolo, String descrizione, int idUtente, int posizioneB) { // --- MODIFICA ---
         this.titolo = titolo;
         this.descrizione = descrizione;
         this.idUtente = idUtente;
+        this.posizioneB = posizioneB; // --- MODIFICA ---
         this.toDos = new ArrayList<>();
     }
 
@@ -25,11 +26,12 @@ public class Bacheca {
      * Costruttore per una bacheca LETTA DAL DATABASE (ID esistente).
      * Usato dal DAO per "idratare" l'oggetto.
      */
-    public Bacheca(int idBacheca, TitoloBacheca titolo, String descrizione, int idUtente) {
+    public Bacheca(int idBacheca, TitoloBacheca titolo, String descrizione, int idUtente, int posizioneB) { // --- MODIFICA ---
         this.idBacheca = idBacheca;
         this.titolo = titolo;
         this.descrizione = descrizione;
         this.idUtente = idUtente;
+        this.posizioneB = posizioneB; // --- MODIFICA ---
         this.toDos = new ArrayList<>();
     }
 
@@ -54,6 +56,16 @@ public class Bacheca {
     public List<ToDo> getToDos() {
         return toDos;
     }
+
+    // --- MODIFICA: Metodi GET/SET per posizioneB ---
+    public int getPosizioneB() {
+        return posizioneB;
+    }
+
+    public void setPosizioneB(int posizioneB) {
+        this.posizioneB = posizioneB;
+    }
+    // --- FINE MODIFICA ---
 
     // --- Metodi Setter (Richiesti dai DAO) ---
 

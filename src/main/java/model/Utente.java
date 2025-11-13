@@ -54,4 +54,15 @@ public class Utente {
     public void setId(int id) {
         this.idUtente = id;
     }
+
+    // --- NUOVA MODIFICA ---
+    /**
+     * Override di toString per mostrare correttamente
+     * l'username nelle JList
+     */
+    @Override
+    public String toString() {
+        return this.username;
+    }
+    // --- FINE MODIFICA ---
 }

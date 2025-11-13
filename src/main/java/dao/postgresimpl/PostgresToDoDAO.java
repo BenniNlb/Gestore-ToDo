@@ -2,7 +2,8 @@ package dao.postgresimpl;
 
 import dao.ToDoDAO;
 import database.DBConnection;
-import model.ToDo;
+import model.*;
+import dao.UtenteDAO;
 
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
@@ -16,8 +17,10 @@ import java.io.IOException;
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -29,9 +32,17 @@ public class PostgresToDoDAO implements ToDoDAO {
 
     private static final Logger LOGGER = Logger.getLogger(PostgresToDoDAO.class.getName());
     private Connection conn;
+    private UtenteDAO utenteDAO; // Ci serve per la condivisione
 
     public PostgresToDoDAO() {
         this.conn = DBConnection.getConnection();
+        this.utenteDAO = new PostgresUtenteDAO(this.conn);
+    }
+
+    // Costruttore (come quello del prof)
+    public PostgresToDoDAO(Connection connection, UtenteDAO utenteDAO) {
+        this.conn = connection;
+        this.utenteDAO = utenteDAO;
     }
 
     // --- Helper per Colore -> Stringa ---
@@ -76,9 +87,8 @@ public class PostgresToDoDAO implements ToDoDAO {
 
     @Override
     public void addToDo(ToDo todo) {
-        // SQL adattato ai nostri campi (manca id_utente_creatore per ora)
-        String sql = "INSERT INTO todo (titolo, descrizione, data_scadenza, colore_sfondo, immagine, stato, posizione, id_bacheca) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_todo";
+        String sql = "INSERT INTO todo (titolo, descrizione, data_scadenza, colore_sfondo, immagine, stato, posizione, id_bacheca, id_utente_creatore) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_todo";
 
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -90,12 +100,11 @@ public class PostgresToDoDAO implements ToDoDAO {
             pstmt.setBoolean(6, todo.isCompletato());
             pstmt.setInt(7, todo.getPosizione());
             pstmt.setInt(8, todo.getIdBacheca());
+            pstmt.setInt(9, todo.getIdUtenteCreatore());
 
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
                     todo.setId(rs.getInt(1));
-
-                    // Ora salva i link nella tabella separata
                     updateLinksForToDo(todo.getIdToDo(), todo.getLinkURLs());
                 }
             }
@@ -150,16 +159,16 @@ public class PostgresToDoDAO implements ToDoDAO {
                 rs.getBoolean("stato"),
                 rs.getInt("posizione"),
                 rs.getInt("id_bacheca"),
-                0 // TODO: Dovremo aggiungere id_utente_creatore al DB e leggerlo qui
+                rs.getInt("id_utente_creatore")
         );
 
-        // Carica i link associati
         td.setLinksDalDB(getLinksForToDo(td.getIdToDo()));
-
-        // Carica l'immagine
         td.setImmagine(bytesToImageIcon(rs.getBytes("immagine")));
 
-        // TODO: Carica le condivisioni (dalla tabella todo_condivisione)
+        // --- MODIFICA CHIAVE ---
+        // Popoliamo la nuova mappa delle condivisioni
+        td.setCondivisioniDalDB(getCondivisioni(td.getIdToDo()));
+        // --- FINE MODIFICA ---
 
         return td;
     }
@@ -183,7 +192,6 @@ public class PostgresToDoDAO implements ToDoDAO {
 
     // Helper per aggiornare i link (cancella e ricrea)
     private void updateLinksForToDo(int idTodo, List<String> links) {
-        // 1. Cancella i link vecchi
         String sqlDelete = "DELETE FROM todo_links WHERE id_todo = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sqlDelete)) {
             pstmt.setInt(1, idTodo);
@@ -192,7 +200,6 @@ public class PostgresToDoDAO implements ToDoDAO {
             LOGGER.log(Level.SEVERE, "Errore updateLinks (DELETE)", e);
         }
 
-        // 2. Inserisci i link nuovi
         if (links == null || links.isEmpty()) return;
 
         String sqlInsert = "INSERT INTO todo_links (id_todo, url) VALUES (?, ?)";
@@ -200,25 +207,28 @@ public class PostgresToDoDAO implements ToDoDAO {
             for (String link : links) {
                 pstmt.setInt(1, idTodo);
                 pstmt.setString(2, link);
-                pstmt.addBatch(); // Aggiunge l'inserimento al batch
+                pstmt.addBatch();
             }
-            pstmt.executeBatch(); // Esegue tutti gli inserimenti
+            pstmt.executeBatch();
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Errore updateLinks (INSERT)", e);
         }
     }
 
-    @Override
+    @Override  // <-- AGGIUNGI QUESTA RIGA
     public List<ToDo> getToDosByDate(int idUtente, LocalDate date) {
         List<ToDo> todos = new ArrayList<>();
-        // Query complessa: Seleziona i ToDo dall'utente X (tramite bacheca) che scadono in data Y
+        // Query: Seleziona ToDo dell'utente O ToDo condivisi con l'utente
         String sql = "SELECT t.* FROM todo t " +
-                "JOIN bacheca b ON t.id_bacheca = b.id_bacheca " +
-                "WHERE b.id_utente = ? AND t.data_scadenza = ?";
+                "LEFT JOIN bacheca b ON t.id_bacheca = b.id_bacheca " +
+                "LEFT JOIN todo_condivisione tc ON t.id_todo = tc.id_todo " +
+                "WHERE (b.id_utente = ? OR tc.id_utente = ?) AND t.data_scadenza = ? " +
+                "GROUP BY t.id_todo"; // GROUP BY per evitare duplicati
 
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, idUtente);
-            pstmt.setObject(2, date);
+            pstmt.setInt(2, idUtente);
+            pstmt.setObject(3, date);
 
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
@@ -235,13 +245,16 @@ public class PostgresToDoDAO implements ToDoDAO {
     public List<ToDo> getToDosEntroData(int idUtente, LocalDate endDate) {
         List<ToDo> todos = new ArrayList<>();
         String sql = "SELECT t.* FROM todo t " +
-                "JOIN bacheca b ON t.id_bacheca = b.id_bacheca " +
-                "WHERE b.id_utente = ? AND t.stato = false " +
-                "AND t.data_scadenza <= ? AND t.data_scadenza >= CURRENT_DATE";
+                "LEFT JOIN bacheca b ON t.id_bacheca = b.id_bacheca " +
+                "LEFT JOIN todo_condivisione tc ON t.id_todo = tc.id_todo " +
+                "WHERE (b.id_utente = ? OR tc.id_utente = ?) AND t.stato = false " +
+                "AND t.data_scadenza <= ? AND t.data_scadenza >= CURRENT_DATE " +
+                "GROUP BY t.id_todo";
 
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, idUtente);
-            pstmt.setObject(2, endDate);
+            pstmt.setInt(2, idUtente);
+            pstmt.setObject(3, endDate);
 
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
@@ -258,15 +271,18 @@ public class PostgresToDoDAO implements ToDoDAO {
     public List<ToDo> searchToDos(int idUtente, String query) {
         List<ToDo> todos = new ArrayList<>();
         String sql = "SELECT t.* FROM todo t " +
-                "JOIN bacheca b ON t.id_bacheca = b.id_bacheca " +
-                "WHERE b.id_utente = ? AND (t.titolo ILIKE ? OR t.descrizione ILIKE ?)";
-        // ILIKE è come LIKE ma case-insensitive
+                "LEFT JOIN bacheca b ON t.id_bacheca = b.id_bacheca " +
+                "LEFT JOIN todo_condivisione tc ON t.id_todo = tc.id_todo " +
+                "WHERE (b.id_utente = ? OR tc.id_utente = ?) " +
+                "AND (t.titolo ILIKE ? OR t.descrizione ILIKE ?) " +
+                "GROUP BY t.id_todo";
 
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             String likeQuery = "%" + query.toLowerCase(Locale.ROOT) + "%";
             pstmt.setInt(1, idUtente);
-            pstmt.setString(2, likeQuery);
+            pstmt.setInt(2, idUtente);
             pstmt.setString(3, likeQuery);
+            pstmt.setString(4, likeQuery);
 
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
@@ -282,7 +298,8 @@ public class PostgresToDoDAO implements ToDoDAO {
     @Override
     public void updateToDo(ToDo todo) {
         String sql = "UPDATE todo SET titolo = ?, descrizione = ?, data_scadenza = ?, colore_sfondo = ?, " +
-                "immagine = ?, stato = ?, posizione = ?, id_bacheca = ? WHERE id_todo = ?";
+                "immagine = ?, stato = ?, posizione = ?, id_bacheca = ?, id_utente_creatore = ? " +
+                "WHERE id_todo = ?";
 
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -294,11 +311,11 @@ public class PostgresToDoDAO implements ToDoDAO {
             pstmt.setBoolean(6, todo.isCompletato());
             pstmt.setInt(7, todo.getPosizione());
             pstmt.setInt(8, todo.getIdBacheca());
-            pstmt.setInt(9, todo.getIdToDo());
+            pstmt.setInt(9, todo.getIdUtenteCreatore());
+            pstmt.setInt(10, todo.getIdToDo());
 
             pstmt.executeUpdate();
 
-            // Aggiorna anche i link
             updateLinksForToDo(todo.getIdToDo(), todo.getLinkURLs());
 
         } catch (SQLException e) {
@@ -308,8 +325,6 @@ public class PostgresToDoDAO implements ToDoDAO {
 
     @Override
     public void deleteToDo(int idTodo) {
-        // ON DELETE CASCADE definito nello script SQL
-        // eliminerà automaticamente i link e le condivisioni
         String sql = "DELETE FROM todo WHERE id_todo = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -320,8 +335,6 @@ public class PostgresToDoDAO implements ToDoDAO {
             LOGGER.log(Level.SEVERE, "Errore durante deleteToDo", e);
         }
     }
-
-    // --- Metodi del prof non ancora usati ---
 
     @Override
     public List<ToDo> getAllToDos() {
@@ -339,4 +352,112 @@ public class PostgresToDoDAO implements ToDoDAO {
             LOGGER.log(Level.SEVERE, "Errore durante markAllToDosAsCompleted", e);
         }
     }
+
+    // --- Metodi Condivisione (MODIFICATI) ---
+
+    /**
+     * MODIFICATO: Ritorna una Mappa di Utenti e i loro permessi.
+     */
+    @Override
+    public Map<Utente, PermessoCondivisione> getCondivisioni(int idTodo) {
+        Map<Utente, PermessoCondivisione> mappa = new HashMap<>();
+        String sql = "SELECT id_utente, permesso FROM todo_condivisione WHERE id_todo = ?";
+
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, idTodo);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    Utente u = utenteDAO.getUtenteById(rs.getInt("id_utente"));
+                    PermessoCondivisione p = PermessoCondivisione.fromString(rs.getString("permesso"));
+                    if (u != null) {
+                        mappa.put(u, p);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Errore getCondivisioni", e);
+        }
+        return mappa;
+    }
+
+    /**
+     * MODIFICATO: Aggiunge il permesso.
+     */
+    @Override
+    public void aggiungiCondivisione(int idTodo, int idUtente, PermessoCondivisione permesso) {
+        // ON CONFLICT: Se l'utente è già condiviso, aggiorna solo il permesso
+        String sql = "INSERT INTO todo_condivisione (id_todo, id_utente, permesso) VALUES (?, ?, ?) " +
+                "ON CONFLICT (id_todo, id_utente) DO UPDATE SET permesso = EXCLUDED.permesso";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, idTodo);
+            pstmt.setInt(2, idUtente);
+            pstmt.setString(3, permesso.name()); // Salva come stringa (es. "MODIFICA")
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Errore aggiungiCondivisione", e);
+        }
+    }
+
+    /**
+     * NUOVO: Aggiorna solo il permesso di un utente già condiviso.
+     */
+    @Override
+    public void aggiornaPermessoCondivisione(int idTodo, int idUtente, PermessoCondivisione permesso) {
+        String sql = "UPDATE todo_condivisione SET permesso = ? WHERE id_todo = ? AND id_utente = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, permesso.name());
+            pstmt.setInt(2, idTodo);
+            pstmt.setInt(3, idUtente);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Errore aggiornaPermessoCondivisione", e);
+        }
+    }
+
+
+    @Override
+    public void rimuoviCondivisione(int idTodo, int idUtente) {
+        String sql = "DELETE FROM todo_condivisione WHERE id_todo = ? AND id_utente = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, idTodo);
+            pstmt.setInt(2, idUtente);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Errore rimuoviCondivisione", e);
+        }
+    }
+
+    // --- NUOVA IMPLEMENTAZIONE DAO PER FIX BUG ---
+    @Override
+    public List<ToDo> getSharedToDosForUser(int idUtente, TitoloBacheca titoloBacheca) {
+        List<ToDo> todos = new ArrayList<>();
+        // Seleziona ToDo (t)
+        // uniti alla tabella condivisione (tc)
+        // uniti alla bacheca del creatore (b_creatore)
+        // dove l'utente condiviso è (idUtente)
+        // e il titolo della bacheca del creatore corrisponde
+        String sql = "SELECT t.* " +
+                "FROM todo t " +
+                "JOIN todo_condivisione tc ON t.id_todo = tc.id_todo " +
+                "JOIN bacheca b_creatore ON t.id_bacheca = b_creatore.id_bacheca " +
+                "WHERE tc.id_utente = ? " +
+                "  AND b_creatore.titolo = ? " +
+                "GROUP BY t.id_todo " +
+                "ORDER BY t.posizione ASC";
+
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, idUtente);
+            pstmt.setString(2, titoloBacheca.name()); // Es. "LAVORO"
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    todos.add(hydrateToDo(rs));
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Errore durante getSharedToDosForUser", e);
+        }
+        return todos;
+    }
+    // --- FINE NUOVO ---
 }

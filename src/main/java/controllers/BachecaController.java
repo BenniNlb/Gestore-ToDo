@@ -7,52 +7,51 @@ import model.TitoloBacheca;
 import model.Utente;
 
 import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * Controller che gestisce le bacheche.
- * Ora carica i dati dal DB invece che in memoria.
+ * MODIFICATO: Usa una List ordinata dal DB (tramite 'posizioneB').
  */
 public class BachecaController {
 
-    private Map<TitoloBacheca, Bacheca> bacheche;
+    private List<Bacheca> bacheche;
     private final List<Runnable> listeners = new ArrayList<>();
     private final Utente utenteLoggato;
-
     private final BachecaDAO bachecaDAO;
 
     public BachecaController(Utente utente) {
         this.utenteLoggato = utente;
         this.bachecaDAO = new PostgresBachecaDAO();
+        this.bacheche = new ArrayList<>();
 
         // Carica le bacheche dell'utente dal DB
         loadBachecheFromDB();
     }
 
     /**
-     * Carica le bacheche dal DB. Se l'utente non ne ha,
-     * crea e salva le 3 bacheche di default.
+     * Carica le bacheche dal DB.
+     * Il DAO ora le restituisce GIA ordinate per 'posizioneB'.
      */
     private void loadBachecheFromDB() {
         List<Bacheca> bachecheList = bachecaDAO.getBachecheByUtente(utenteLoggato.getIdUtente());
 
         if (bachecheList.isEmpty()) {
-            // Primo login: crea e salva le bacheche di default
+            // Primo login: crea e salva le bacheche di default con posizione
+            int pos = 0;
             for (TitoloBacheca t : Arrays.asList(
                     TitoloBacheca.UNIVERSITA,
                     TitoloBacheca.LAVORO,
                     TitoloBacheca.TEMPO_LIBERO)) {
 
-                Bacheca nuovaBacheca = new Bacheca(t, "", utenteLoggato.getIdUtente());
+                Bacheca nuovaBacheca = new Bacheca(t, "", utenteLoggato.getIdUtente(), pos++); // --- MODIFICA ---
                 bachecaDAO.addBacheca(nuovaBacheca); // Salva su DB
                 bachecheList.add(nuovaBacheca); // Aggiungi alla lista
             }
         }
 
-        // Converte la Lista in una Mappa per la logica esistente
-        this.bacheche = bachecheList.stream()
-                .collect(Collectors.toMap(Bacheca::getTitolo, Function.identity()));
+        // --- MODIFICA: La lista è già ordinata dal DAO ---
+        this.bacheche = bachecheList;
+        // --- FINE MODIFICA ---
     }
 
     public void addChangeListener(Runnable listener) {
@@ -66,11 +65,16 @@ public class BachecaController {
     }
 
     public List<Bacheca> getAllBacheche() {
-        return new ArrayList<>(bacheche.values());
+        return bacheche;
     }
 
     public Bacheca getBacheca(TitoloBacheca titolo) {
-        return bacheche.get(titolo);
+        for (Bacheca b : bacheche) {
+            if (b.getTitolo() == titolo) {
+                return b;
+            }
+        }
+        return null;
     }
 
     public void aggiungiBacheca(TitoloBacheca titolo, String descrizione) {
@@ -78,32 +82,62 @@ public class BachecaController {
                 .contains(titolo)) {
             throw new IllegalArgumentException("Titolo non valido");
         }
-        if (bacheche.containsKey(titolo)) {
+
+        if (getBacheca(titolo) != null) {
             throw new IllegalArgumentException("Bacheca '" + titolo + "' già esistente");
         }
 
-        // CORRETTO: Passa l'ID utente reale
-        Bacheca nuovaBacheca = new Bacheca(titolo, descrizione != null ? descrizione : "", utenteLoggato.getIdUtente());
+        // --- MODIFICA: Calcola la nuova posizioneB ---
+        int nuovaPosizione = this.bacheche.size();
+        Bacheca nuovaBacheca = new Bacheca(titolo, descrizione != null ? descrizione : "", utenteLoggato.getIdUtente(), nuovaPosizione);
+        // --- FINE MODIFICA ---
+
         bachecaDAO.addBacheca(nuovaBacheca); // Salva su DB
 
-        bacheche.put(titolo, nuovaBacheca); // Aggiungi alla mappa in memoria
+        // --- MODIFICA: Aggiunge alla lista (non serve riordinare) ---
+        bacheche.add(nuovaBacheca); // Aggiungi alla lista
+        // --- FINE MODIFICA ---
+
         notifyListeners();
     }
 
     public void eliminaBacheca(TitoloBacheca titolo) {
-        if (!bacheche.containsKey(titolo))
+        Bacheca b = getBacheca(titolo);
+        if (b == null) {
             throw new IllegalArgumentException("Bacheca '" + titolo + "' inesistente");
+        }
 
         if (bacheche.size() <= 1) {
             throw new IllegalArgumentException("Impossibile eliminare l'ultima bacheca.");
         }
 
-        Bacheca b = bacheche.get(titolo);
         bachecaDAO.deleteBacheca(b.getIdBacheca()); // Elimina da DB
+        bacheche.remove(b); // Rimuovi da lista
 
-        bacheche.remove(titolo); // Rimuovi da mappa
+        // --- NUOVO: Aggiorna l'ordine delle bacheche rimanenti ---
+        salvaOrdineBacheche();
+        // --- FINE NUOVO ---
+
         notifyListeners();
     }
+
+    // --- NUOVO METODO ---
+    /**
+     * Scorre le bacheche in memoria (che sono ordinate)
+     * e aggiorna il campo 'posizioneB' nel DB.
+     */
+    private void salvaOrdineBacheche() {
+        for (int i = 0; i < bacheche.size(); i++) {
+            Bacheca b = bacheche.get(i);
+            // --- MODIFICA: usa getPosizioneB/setPosizioneB ---
+            if (b.getPosizioneB() != i) {
+                b.setPosizioneB(i);
+                bachecaDAO.updateBacheca(b); // Salva la nuova posizioneB
+            }
+            // --- FINE MODIFICA ---
+        }
+    }
+    // --- FINE NUOVO METODO ---
 
     public void modificaDescrizioneBacheca(TitoloBacheca titolo, String nuovaDescrizione) {
         Bacheca b = getBacheca(titolo);

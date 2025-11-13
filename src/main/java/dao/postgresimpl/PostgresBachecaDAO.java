@@ -9,6 +9,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
@@ -33,16 +34,18 @@ public class PostgresBachecaDAO implements BachecaDAO {
 
     @Override
     public void addBacheca(Bacheca bacheca) {
-        String sql = "INSERT INTO bacheca (titolo, descrizione, id_utente) VALUES (?, ?, ?) RETURNING id_bacheca";
+        // --- MODIFICA: Aggiunta posizioneB ---
+        String sql = "INSERT INTO bacheca (titolo, descrizione, id_utente, posizioneB) VALUES (?, ?, ?, ?) RETURNING id_bacheca";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            pstmt.setString(1, bacheca.getTitolo().name()); // Salva l'enum come Stringa
+            pstmt.setString(1, bacheca.getTitolo().name());
             pstmt.setString(2, bacheca.getDescrizione());
             pstmt.setInt(3, bacheca.getIdUtente());
+            pstmt.setInt(4, bacheca.getPosizioneB()); // --- MODIFICA ---
 
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
-                    bacheca.setId(rs.getInt("id_bacheca")); // Imposta l'ID generato
+                    bacheca.setId(rs.getInt("id_bacheca"));
                 }
             }
         } catch (SQLException e) {
@@ -59,9 +62,10 @@ public class PostgresBachecaDAO implements BachecaDAO {
                 if (rs.next()) {
                     return new Bacheca(
                             rs.getInt("id_bacheca"),
-                            TitoloBacheca.valueOf(rs.getString("titolo")), // Converte String in Enum
+                            TitoloBacheca.valueOf(rs.getString("titolo")),
                             rs.getString("descrizione"),
-                            rs.getInt("id_utente")
+                            rs.getInt("id_utente"),
+                            rs.getInt("posizioneB") // --- MODIFICA ---
                     );
                 }
             }
@@ -83,7 +87,8 @@ public class PostgresBachecaDAO implements BachecaDAO {
                         rs.getInt("id_bacheca"),
                         TitoloBacheca.valueOf(rs.getString("titolo")),
                         rs.getString("descrizione"),
-                        rs.getInt("id_utente")
+                        rs.getInt("id_utente"),
+                        rs.getInt("posizioneB") // --- MODIFICA ---
                 );
             }
         } catch (SQLException e) {
@@ -95,7 +100,9 @@ public class PostgresBachecaDAO implements BachecaDAO {
     @Override
     public List<Bacheca> getBachecheByUtente(int idUtente) {
         List<Bacheca> bacheche = new ArrayList<>();
-        String sql = "SELECT * FROM bacheca WHERE id_utente = ?";
+        // --- MODIFICA: Aggiunto ORDER BY posizioneB ---
+        String sql = "SELECT * FROM bacheca WHERE id_utente = ? ORDER BY posizioneB ASC";
+        // --- FINE MODIFICA ---
 
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, idUtente);
@@ -106,7 +113,8 @@ public class PostgresBachecaDAO implements BachecaDAO {
                             rs.getInt("id_bacheca"),
                             TitoloBacheca.valueOf(rs.getString("titolo")),
                             rs.getString("descrizione"),
-                            rs.getInt("id_utente")
+                            rs.getInt("id_utente"),
+                            rs.getInt("posizioneB") // --- MODIFICA ---
                     ));
                 }
             }
@@ -118,11 +126,13 @@ public class PostgresBachecaDAO implements BachecaDAO {
 
     @Override
     public void updateBacheca(Bacheca bacheca) {
-        String sql = "UPDATE bacheca SET descrizione = ? WHERE id_bacheca = ?";
+        // --- MODIFICA: Aggiorna anche posizioneB ---
+        String sql = "UPDATE bacheca SET descrizione = ?, posizioneB = ? WHERE id_bacheca = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setString(1, bacheca.getDescrizione());
-            pstmt.setInt(2, bacheca.getIdBacheca());
+            pstmt.setInt(2, bacheca.getPosizioneB()); // --- MODIFICA ---
+            pstmt.setInt(3, bacheca.getIdBacheca());
 
             pstmt.executeUpdate();
 
@@ -144,21 +154,61 @@ public class PostgresBachecaDAO implements BachecaDAO {
         }
     }
 
-    // Metodi non presenti nel nostro modello ma presenti nel DAO del prof
     @Override
     public List<Bacheca> getAllBacheche() {
-        // Implementazione non richiesta dal nostro controller, ma presente nell'interfaccia
-        return new ArrayList<>();
+        List<Bacheca> bacheche = new ArrayList<>();
+        // --- MODIFICA: Aggiunto ORDER BY posizioneB ---
+        String sql = "SELECT * FROM bacheca ORDER BY posizioneB ASC";
+        try (Statement stmt = this.conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                bacheche.add(new Bacheca(
+                        rs.getInt("id_bacheca"),
+                        TitoloBacheca.valueOf(rs.getString("titolo")),
+                        rs.getString("descrizione"),
+                        rs.getInt("id_utente"),
+                        rs.getInt("posizioneB") // --- MODIFICA ---
+                ));
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Errore nel recupero di tutte le bacheche", e);
+        }
+        return bacheche;
     }
 
     @Override
     public List<Bacheca> getBachecheByUsername(String username) {
-        // Implementazione non richiesta al momento
-        return new ArrayList<>();
+        List<Bacheca> bacheche = new ArrayList<>();
+        // --- MODIFICA: Aggiunto ORDER BY posizioneB ---
+        String sql = "SELECT b.* FROM bacheca b " +
+                "JOIN utente u ON b.id_utente = u.id_utente " +
+                "WHERE u.username = ? ORDER BY b.posizioneB ASC";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                bacheche.add(new Bacheca(
+                        rs.getInt("id_bacheca"),
+                        TitoloBacheca.valueOf(rs.getString("titolo")),
+                        rs.getString("descrizione"),
+                        rs.getInt("id_utente"),
+                        rs.getInt("posizioneB") // --- MODIFICA ---
+                ));
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Errore durante getBachecheByUsername", e);
+        }
+        return bacheche;
     }
 
     @Override
     public void deleteAllBachecheByUserId(int userId) {
-        // Implementazione non richiesta al momento
+        String sql = "DELETE FROM bacheca WHERE id_utente = ?";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, userId);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Errore durante l'eliminazione di tutte le bacheche per utente", e);
+        }
     }
 }

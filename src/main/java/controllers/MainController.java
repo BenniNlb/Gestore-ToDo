@@ -2,28 +2,40 @@ package controllers;
 
 import model.ToDo;
 import model.TitoloBacheca;
-import model.Bacheca;
-import model.Utente; // IMPORTA UTENTE
+import model.Bacheca; // Importato
+import model.PermessoCondivisione;
+import model.Utente;
+import dao.ToDoDAO;
+import dao.UtenteDAO;
+import dao.postgresimpl.PostgresToDoDAO;
+import dao.postgresimpl.PostgresUtenteDAO;
+import database.DBConnection;
 
 import java.awt.Color;
 import java.time.LocalDate;
 import javax.swing.ImageIcon;
-import java.util.List; // IMPORTA LIST
+import java.util.List;
 
 public class MainController {
 
     private final BachecaController bachecaCtrl;
     private final ToDoController todoCtrl;
-    private final Utente utenteLoggato; // NUOVO
+    private final Utente utenteLoggato;
 
-    // --- MODIFICATO: Il costruttore accetta l'Utente ---
     public MainController(Utente utente) {
         this.utenteLoggato = utente;
-        // Passa l'utente ai controller figli
+
         this.bachecaCtrl = new BachecaController(utenteLoggato);
-        this.todoCtrl = new ToDoController(utenteLoggato, bachecaCtrl);
+
+        UtenteDAO utenteDAO = new PostgresUtenteDAO(DBConnection.getConnection());
+        ToDoDAO todoDAO = new PostgresToDoDAO(DBConnection.getConnection(), utenteDAO);
+
+        this.todoCtrl = new ToDoController(utenteLoggato, bachecaCtrl, todoDAO, utenteDAO);
     }
-    // --- FINE MODIFICA ---
+
+    public Utente getUtenteLoggato() {
+        return utenteLoggato;
+    }
 
     public BachecaController getBachecaController() {
         return bachecaCtrl;
@@ -37,7 +49,6 @@ public class MainController {
         bachecaCtrl.modificaDescrizioneBacheca(titolo, nuovaDescrizione);
     }
 
-    /** Azioni delegate (aggiornate per lista di link e immagine) **/
     public void onAddToDo(String titolo,
                           LocalDate data,
                           java.util.List<String> linkURLs,
@@ -64,7 +75,6 @@ public class MainController {
         todoCtrl.setCompletato(td, stato);
     }
 
-    /** Metodo per modificare un ToDo (aggiornato) */
     public void onEditToDo(ToDo td,
                            String nuovoTitolo,
                            LocalDate nuovaData,
@@ -72,7 +82,7 @@ public class MainController {
                            String nuovaDescrizione,
                            ImageIcon nuovaImmagine,
                            TitoloBacheca nuovaBacheca,
-                           Color nuovoColore) { // Aggiunto colore
+                           Color nuovoColore) {
         todoCtrl.modificaToDo(td, nuovoTitolo, nuovaData, nuoviLink, nuovaDescrizione, nuovaImmagine, nuovaBacheca, nuovoColore);
     }
 
@@ -82,5 +92,31 @@ public class MainController {
 
     public java.util.List<ToDo> getScadenzePerData(LocalDate date) {
         return todoCtrl.getToDoByDate(date);
+    }
+
+    // --- Metodi Ponte per la Condivisione ---
+
+    public List<Utente> cercaUtenti(String query) {
+        return todoCtrl.cercaUtenti(query);
+    }
+
+    public void onAggiungiCondivisione(ToDo todo, Utente utente, PermessoCondivisione permesso) {
+        todoCtrl.onAggiungiCondivisione(todo, utente, permesso);
+    }
+
+    public void onModificaPermesso(ToDo todo, Utente utente, PermessoCondivisione nuovoPermesso) {
+        todoCtrl.onModificaPermesso(todo, utente, nuovoPermesso);
+    }
+
+    public void onRimuoviCondivisione(ToDo todo, Utente utente) {
+        todoCtrl.onRimuoviCondivisione(todo, utente);
+    }
+
+    public Utente getUtenteById(int id) {
+        return todoCtrl.getUtenteById(id);
+    }
+
+    public void onSalvaOrdineBacheca(Bacheca bacheca) {
+        todoCtrl.salvaOrdineBacheca(bacheca);
     }
 }
