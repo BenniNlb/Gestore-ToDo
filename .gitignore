@@ -1,0 +1,12 @@
+# Cartella output di compilazione IntelliJ
+/out/
+
+# File di progetto IntelliJ
+*.iml
+.idea/
+
+# File di sistema macOS
+.DS_Store
+
+# File compilati Java (generico)
+*.class
