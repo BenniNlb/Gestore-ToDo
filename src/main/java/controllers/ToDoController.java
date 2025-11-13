@@ -1,9 +1,10 @@
 package controllers;
 
 import dao.ToDoDAO;
-import dao.postgresimpl.PostgresToDoDAO;
+import dao.UtenteDAO;
 import model.ToDo;
 import model.Bacheca;
+import model.PermessoCondivisione;
 import model.TitoloBacheca;
 import model.Utente;
 
@@ -18,23 +19,45 @@ public class ToDoController {
     private final Utente utenteLoggato;
 
     private final ToDoDAO todoDAO;
+    private final UtenteDAO utenteDAO;
 
-    public ToDoController(Utente utente, BachecaController bCtrl) {
+    public ToDoController(Utente utente, BachecaController bCtrl, ToDoDAO todoDAO, UtenteDAO utenteDAO) {
         this.utenteLoggato = utente;
         this.bachecaCtrl = bCtrl;
-        this.todoDAO = new PostgresToDoDAO();
+        this.todoDAO = todoDAO;
+        this.utenteDAO = utenteDAO;
 
         // Carica i ToDo per ogni bacheca
         loadToDosFromDB();
     }
 
     /**
-     * Carica i ToDo dal DB per ogni bacheca gestita dal BachecaController.
+     * MODIFICATO: Carica sia i ToDo creati che quelli condivisi.
      */
     private void loadToDosFromDB() {
         for (Bacheca b : bachecaCtrl.getAllBacheche()) {
-            List<ToDo> toDos = todoDAO.getAllToDosByBacheca(b.getIdBacheca());
-            b.setToDos(toDos); // "Idrata" il modello in memoria
+
+            // 1. Get ToDos CREATI da me per questa bacheca
+            List<ToDo> myToDos = todoDAO.getAllToDosByBacheca(b.getIdBacheca());
+
+            // 2. Get ToDos CONDIVISI con me che appartengono a una bacheca con lo stesso titolo
+            List<ToDo> sharedToDos = todoDAO.getSharedToDosForUser(
+                    utenteLoggato.getIdUtente(),
+                    b.getTitolo() // Es. "LAVORO"
+            );
+
+            // 3. Combina e de-duplica (usa una Mappa per evitare duplicati)
+            Map<Integer, ToDo> combined = new LinkedHashMap<>();
+            for (ToDo td : myToDos) {
+                combined.put(td.getIdToDo(), td);
+            }
+            for (ToDo td : sharedToDos) {
+                // Aggiunge solo se non è già presente (quelli creati da me hanno priorità)
+                combined.putIfAbsent(td.getIdToDo(), td);
+            }
+
+            // 4. Imposta la lista finale sulla bacheca
+            b.setToDos(new ArrayList<>(combined.values()));
         }
     }
 
@@ -53,16 +76,18 @@ public class ToDoController {
         Bacheca b = bachecaCtrl.getBacheca(inBacheca);
         if (b == null) throw new IllegalArgumentException("Bacheca di destinazione non trovata: " + inBacheca);
 
-        // --- MODIFICATO: Costruttore ToDo aggiornato ---
-        // Passa l'ID della bacheca e l'ID utente reale
         ToDo td = new ToDo(titolo, b.getIdBacheca(), utenteLoggato.getIdUtente());
-        // --- FINE MODIFICA ---
 
         td.setDataScadenza(dataScadenza);
         td.setLinkURLs(linkURLs);
         td.setDescrizione(descrizione);
         td.setColoreSfondo(coloreSfondo);
         td.setImmagine(immagine);
+
+        // --- NUOVA LOGICA POSIZIONE ---
+        // Imposta la posizione come ultimo elemento della lista
+        td.setPosizione(b.getToDos().size());
+        // --- FINE NUOVA LOGICA ---
 
         todoDAO.addToDo(td); // Salva su DB (questo imposta anche l'ID sul ToDo)
 
@@ -75,10 +100,21 @@ public class ToDoController {
     public void eliminaToDo(ToDo td) {
         todoDAO.deleteToDo(td.getIdToDo()); // Elimina da DB
 
+        Bacheca bachecaCorrente = null;
         // Rimuovi da modello in memoria
         for (Bacheca b : bachecaCtrl.getAllBacheche()) {
-            b.rimuoviToDo(td);
+            if (b.getToDos().contains(td)) {
+                b.rimuoviToDo(td);
+                bachecaCorrente = b;
+                break;
+            }
         }
+
+        // Se abbiamo rimosso un todo, dobbiamo aggiornare l'ordine
+        if (bachecaCorrente != null) {
+            salvaOrdineBacheca(bachecaCorrente);
+        }
+
         bachecaCtrl.notifyChange();
     }
 
@@ -89,7 +125,6 @@ public class ToDoController {
     }
 
     public List<ToDo> getToDoByDate(LocalDate date) {
-        // Ora usa il DAO e l'utente loggato
         return todoDAO.getToDosByDate(utenteLoggato.getIdUtente(), date);
     }
 
@@ -102,7 +137,6 @@ public class ToDoController {
     }
 
     public List<ToDo> searchToDo(String query) {
-        // Ora usa il DAO e l'utente loggato
         return todoDAO.searchToDos(utenteLoggato.getIdUtente(), query);
     }
 
@@ -131,24 +165,81 @@ public class ToDoController {
         td.setColoreSfondo(nuovoColore);
 
         if (bDest == null) {
-            // L'utente ha selezionato una bacheca non valida? Non dovrebbe succedere
-            // Salva solo le modifiche al ToDo
             todoDAO.updateToDo(td);
             bachecaCtrl.notifyChange();
             return;
         }
 
-        // Se la bacheca è cambiata → sposta il ToDo
         if (bachecaCorrente != null && !bachecaCorrente.equals(bDest)) {
             bachecaCorrente.rimuoviToDo(td);
-            td.setIdBacheca(bDest.getIdBacheca()); // Aggiorna l'ID bacheca nel ToDo
+            td.setIdBacheca(bDest.getIdBacheca());
+
+            // --- NUOVA LOGICA POSIZIONE ---
+            // Imposta la posizione come ultimo elemento della *nuova* lista
+            td.setPosizione(bDest.getToDos().size());
             bDest.aggiungiToDo(td);
+
+            // Aggiorna l'ordine della vecchia bacheca
+            salvaOrdineBacheca(bachecaCorrente);
+            // --- FINE NUOVA LOGICA ---
+
         } else if (bachecaCorrente == null) {
             td.setIdBacheca(bDest.getIdBacheca());
+            td.setPosizione(bDest.getToDos().size()); // Imposta posizione
             bDest.aggiungiToDo(td);
         }
 
-        todoDAO.updateToDo(td); // Salva modifiche (inclusa nuova bacheca) su DB
+        todoDAO.updateToDo(td);
+        // Salva il nuovo ordine della bacheca di destinazione
+        salvaOrdineBacheca(bDest);
+
         bachecaCtrl.notifyChange();
     }
+
+    // --- METODI PER CONDIVISIONE ---
+
+    public List<Utente> cercaUtenti(String query) {
+        return utenteDAO.searchUtenti(query, utenteLoggato.getIdUtente());
+    }
+
+    public void onAggiungiCondivisione(ToDo todo, Utente utente, PermessoCondivisione permesso) {
+        todoDAO.aggiungiCondivisione(todo.getIdToDo(), utente.getIdUtente(), permesso);
+        todo.aggiungiOModificaCondivisione(utente, permesso);
+        bachecaCtrl.notifyChange();
+    }
+
+    public void onModificaPermesso(ToDo todo, Utente utente, PermessoCondivisione nuovoPermesso) {
+        todoDAO.aggiornaPermessoCondivisione(todo.getIdToDo(), utente.getIdUtente(), nuovoPermesso);
+        todo.aggiungiOModificaCondivisione(utente, nuovoPermesso);
+        bachecaCtrl.notifyChange();
+    }
+
+
+    public void onRimuoviCondivisione(ToDo todo, Utente utente) {
+        todoDAO.rimuoviCondivisione(todo.getIdToDo(), utente.getIdUtente());
+        todo.rimuoviCondivisione(utente);
+        bachecaCtrl.notifyChange();
+    }
+
+    public Utente getUtenteById(int id) {
+        return utenteDAO.getUtenteById(id);
+    }
+
+    // --- NUOVO METODO PER SALVARE L'ORDINE ---
+    /**
+     * Scorre la lista dei ToDo in una bacheca (che è già ordinata in memoria)
+     * e aggiorna il campo 'posizione' nel database per ciascuno.
+     */
+    public void salvaOrdineBacheca(Bacheca bacheca) {
+        List<ToDo> toDos = bacheca.getToDos();
+        for (int i = 0; i < toDos.size(); i++) {
+            ToDo td = toDos.get(i);
+            // Aggiorna solo se la posizione è cambiata
+            if (td.getPosizione() != i) {
+                td.setPosizione(i);
+                todoDAO.updateToDo(td); // Salva la nuova posizione
+            }
+        }
+    }
+    // --- FINE NUOVO METODO ---
 }

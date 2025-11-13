@@ -77,14 +77,18 @@ public class RegisterController {
      * Crea e salva nel DB le 3 bacheche di default per un nuovo utente.
      */
     private void creaBachecheDefault(Utente utente) {
+        // --- MODIFICA: Aggiunto contatore di posizione ---
+        int pos = 0;
         for (TitoloBacheca t : Arrays.asList(
                 TitoloBacheca.UNIVERSITA,
                 TitoloBacheca.LAVORO,
                 TitoloBacheca.TEMPO_LIBERO)) {
 
-            Bacheca nuovaBacheca = new Bacheca(t, "", utente.getIdUtente());
+            // Passiamo la posizione (0, 1, 2) al costruttore
+            Bacheca nuovaBacheca = new Bacheca(t, "", utente.getIdUtente(), pos++);
             bachecaDAO.addBacheca(nuovaBacheca); // Salva su DB
         }
+        // --- FINE MODIFICA ---
     }
 
     /**

@@ -3,24 +3,30 @@ package model;
 import java.awt.Color;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javax.swing.ImageIcon;
-// Rimosso import java.util.UUID;
 
 public class ToDo {
     private int idToDo;
     private String titolo;
     private LocalDate dataScadenza;
     private Color coloreSfondo;
-    private List<String> linkURLs; // Lo teniamo, ma il DAO dovrà gestirlo
+    private List<String> linkURLs;
     private String descrizione;
-    private ImageIcon immagine; // Lo teniamo, ma il DAO dovrà gestirlo
+    private ImageIcon immagine;
     private boolean stato; // true = completato
     private int posizione;
 
     private int idBacheca; // A quale bacheca appartiene
     private int idUtenteCreatore; // Chi ha creato il ToDo
-    private List<Utente> condivisoCon; // Chi altro può vederlo
+
+    // --- MODIFICA CHIAVE ---
+    // Sostituiamo la Lista con una Mappa per i permessi
+    private Map<Utente, PermessoCondivisione> condivisioni;
+    // --- FINE MODIFICA ---
+
 
     /**
      * Costruttore per un NUOVO ToDo.
@@ -30,7 +36,8 @@ public class ToDo {
         this.idBacheca = idBacheca;
         this.idUtenteCreatore = idUtenteCreatore;
         this.stato = false;
-        this.condivisoCon = new ArrayList<>();
+        // Inizializza le nuove strutture dati
+        this.condivisioni = new HashMap<>();
         this.linkURLs = new ArrayList<>();
     }
 
@@ -50,7 +57,8 @@ public class ToDo {
         this.posizione = posizione;
         this.idBacheca = idBacheca;
         this.idUtenteCreatore = idUtenteCreatore;
-        this.condivisoCon = new ArrayList<>();
+        // Inizializza le nuove strutture dati
+        this.condivisioni = new HashMap<>();
         this.linkURLs = new ArrayList<>();
     }
 
@@ -153,17 +161,52 @@ public class ToDo {
         this.idUtenteCreatore = idUtenteCreatore;
     }
 
-    public List<Utente> getCondivisoCon() {
-        return condivisoCon;
+
+    // --- METODI DI CONDIVISIONE AGGIORNATI ---
+
+    /**
+     * Ritorna la mappa di utenti e i loro permessi.
+     */
+    public Map<Utente, PermessoCondivisione> getCondivisioni() {
+        return condivisioni;
     }
 
-    public void setCondivisoConDalDB(List<Utente> utenti) {
-        this.condivisoCon = utenti;
+    /**
+     * Usato dal DAO per popolare la mappa delle condivisioni lette dal DB.
+     */
+    public void setCondivisioniDalDB(Map<Utente, PermessoCondivisione> mappaPermessi) {
+        this.condivisioni = mappaPermessi;
     }
 
-    public void aggiungiCondivisione(Utente utente) {
-        if (!condivisoCon.contains(utente)) {
-            condivisoCon.add(utente);
+    /**
+     * Aggiunge o aggiorna una condivisione per un utente.
+     */
+    public void aggiungiOModificaCondivisione(Utente utente, PermessoCondivisione permesso) {
+        condivisioni.put(utente, permesso);
+    }
+
+    /**
+     * Rimuove una condivisione per un utente.
+     */
+    public void rimuoviCondivisione(Utente utente) {
+        condivisioni.remove(utente);
+    }
+
+    /**
+     * Metodo helper per ottenere il permesso di un utente specifico.
+     * @param utente L'utente da controllare.
+     * @return Il PermessoCondivisione (MODIFICA, SOLO_LETTURA) o null se non è condiviso.
+     */
+    public PermessoCondivisione getPermessoPerUtente(Utente utente) {
+        if (utente == null) return null;
+
+        // Cerca l'utente nella mappa per ID,
+        // perché gli oggetti Utente potrebbero essere istanze diverse
+        for (Utente u : condivisioni.keySet()) {
+            if (u.getIdUtente() == utente.getIdUtente()) {
+                return condivisioni.get(u);
+            }
         }
+        return null; // Non trovato
     }
 }

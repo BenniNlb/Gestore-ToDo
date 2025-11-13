@@ -3,6 +3,10 @@ package dao;
 import model.Utente;
 import java.util.List;
 
+/**
+ * Interfaccia per la gestione delle operazioni sugli utenti (Utente).
+ * Basata sul file del professore
+ */
 public interface UtenteDAO {
 
     void addUtente(Utente utente);
@@ -23,4 +27,12 @@ public interface UtenteDAO {
      * @return true se l'utente esiste, false altrimenti.
      */
     boolean utenteEsiste(String username);
+
+    /**
+     * Cerca gli utenti per username, escludendo l'utente corrente.
+     * @param query Il testo da cercare (es. "mario")
+     * @param idUtenteAttuale L'ID dell'utente che sta cercando (per escluderlo)
+     * @return Una lista di utenti che corrispondono.
+     */
+    List<Utente> searchUtenti(String query, int idUtenteAttuale);
 }

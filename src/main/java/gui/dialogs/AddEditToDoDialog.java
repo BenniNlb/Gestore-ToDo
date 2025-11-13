@@ -2,8 +2,10 @@ package gui.dialogs;
 
 import controllers.MainController;
 import model.Bacheca;
+import model.PermessoCondivisione;
 import model.TitoloBacheca;
 import model.ToDo;
+import model.Utente;
 import util.ColorsConstant;
 
 import javax.swing.*;
@@ -16,11 +18,14 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class AddEditToDoDialog extends JDialog {
 
     private final MainController ctrl;
     private final ToDo toEdit;
+
+    // --- MODIFICA: Rimosso l'enum ViewMode ---
 
     // Campi per la nuova logica
     private ImageIcon selectedImage;
@@ -30,22 +35,46 @@ public class AddEditToDoDialog extends JDialog {
     private JLabel selectedImageLabel;
     private JButton removeImageBtn;
 
-    // Costanti per i limiti
-    private static final int MAX_TITOLO_CHARS = 20;
-    private static final int MAX_DESC_CHARS = 250;
+    // --- MODIFICA: Limiti caratteri aumentati ---
+    private static final int MAX_TITOLO_CHARS = 35; // Era 30
+    private static final int MAX_DESC_CHARS = 350; // Era 250
+    // --- FINE MODIFICA ---
+
     private static final long MAX_IMAGE_BYTES = 2 * 1024 * 1024; // 2MB
     private static final int MAX_FILENAME_CHARS = 25;
     private static final int MAX_IMAGE_WIDTH = 400;
     private static final int MAX_IMAGE_HEIGHT = 400;
 
-    // MODIFICATO: Costruttore a 3 argomenti (chiama quello a 4)
+    // --- Componenti per la Condivisione ---
+    private DefaultListModel<Map.Entry<Utente, PermessoCondivisione>> sharedListModel;
+    private JList<Map.Entry<Utente, PermessoCondivisione>> sharedList;
+    private DefaultListModel<Utente> searchListModel;
+    private JList<Utente> searchList;
+    private JTextField searchField;
+    private JComboBox<PermessoCondivisione> permessoCombo;
+    // --- FINE ---
+
+    /**
+     * Costruttore vecchio (per retrocompatibilità, anche se non usato)
+     */
     public AddEditToDoDialog(Window parent, MainController ctrl, ToDo toEdit) {
-        this(parent, ctrl, toEdit, null); // Chiama il costruttore principale con defaultBacheca = null
+        this(parent, ctrl, toEdit, null, true);
     }
 
-    // NUOVO: Costruttore a 4 argomenti
-    public AddEditToDoDialog(Window parent, MainController ctrl, ToDo toEdit, TitoloBacheca defaultBacheca) {
-        super(parent, toEdit == null ? "Nuovo ToDo" : "Modifica ToDo", ModalityType.APPLICATION_MODAL);
+    /**
+     * Costruttore per Modifica (da ToDoCard)
+     * --- MODIFICA: Sostituito ViewMode con boolean ---
+     */
+    public AddEditToDoDialog(Window parent, MainController ctrl, ToDo toEdit, boolean showDetailsView) {
+        this(parent, ctrl, toEdit, null, showDetailsView);
+    }
+
+    /**
+     * Costruttore per Nuovo ToDo (da BachecaPanel)
+     * --- MODIFICA: Sostituito ViewMode con boolean ---
+     */
+    public AddEditToDoDialog(Window parent, MainController ctrl, ToDo toEdit, TitoloBacheca defaultBacheca, boolean showDetailsView) {
+        super(parent, "", ModalityType.APPLICATION_MODAL); // Titolo impostato dopo
         this.ctrl = ctrl;
         this.toEdit = toEdit;
         this.selectedImage = null;
@@ -54,7 +83,7 @@ public class AddEditToDoDialog extends JDialog {
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setResizable(false);
 
-        java.util.List<TitoloBacheca> disponibili = ctrl.getBachecaController()
+        List<TitoloBacheca> disponibili = ctrl.getBachecaController()
                 .getAllBacheche().stream().map(Bacheca::getTitolo).toList();
 
         if (disponibili.isEmpty()) {
@@ -66,6 +95,35 @@ public class AddEditToDoDialog extends JDialog {
             return;
         }
 
+        // --- MODIFICA: Logica basata sul boolean ---
+        boolean showDetails = showDetailsView;
+        if (toEdit == null) {
+            showDetails = true; // Se è un nuovo ToDo, mostra sempre i dettagli
+        }
+
+        JPanel panelToShow;
+
+        if (!showDetails) { // Se showDetails è false, mostra condivisioni
+            setTitle("Gestisci Condivisioni");
+            panelToShow = createSharingPanel();
+            loadSharedUsers(); // Popola la lista
+        } else {
+            // Default è DETTAGLI
+            setTitle(toEdit == null ? "Nuovo ToDo" : "Modifica ToDo");
+            panelToShow = createDetailsPanel(disponibili, defaultBacheca);
+        }
+        // --- FINE MODIFICA ---
+
+        getContentPane().add(panelToShow);
+        pack();
+        setLocationRelativeTo(parent);
+        setVisible(true);
+    }
+
+    /**
+     * Crea il pannello "Dettagli" (il form originale).
+     */
+    private JPanel createDetailsPanel(List<TitoloBacheca> disponibili, TitoloBacheca defaultBacheca) {
         // Componenti
         JTextField titoloField = new JTextField(30);
         titoloCountLabel = new JLabel("0 / " + MAX_TITOLO_CHARS);
@@ -83,7 +141,8 @@ public class AddEditToDoDialog extends JDialog {
         JList<String> linksList = new JList<>(linksModel);
         JTextField linkInput = new JTextField(20);
 
-        final Color[] selectedColor = { ColorsConstant.LIGHT_GREY };
+        final Color[] selectedColor = { Color.WHITE };
+
         JButton colorBtn = new JButton("Scegli Colore");
         JPanel colorPreview = new JPanel();
         colorPreview.setPreferredSize(new Dimension(24, 24));
@@ -118,7 +177,6 @@ public class AddEditToDoDialog extends JDialog {
                 selectedColor[0] = toEdit.getColoreSfondo();
             }
 
-            // Logica di selezione bacheca per MODIFICA
             bachecaCombo.setSelectedItem(ctrl.getBachecaController().getAllBacheche().stream()
                     .filter(b -> b.getToDos().contains(toEdit))
                     .map(Bacheca::getTitolo)
@@ -126,17 +184,15 @@ public class AddEditToDoDialog extends JDialog {
                     .orElse(disponibili.get(0)));
 
         } else if (defaultBacheca != null) {
-            // --- NUOVA LOGICA ---
-            // Se è un NUOVO ToDo E abbiamo una bacheca di default
             bachecaCombo.setSelectedItem(defaultBacheca);
         }
-        // --- FINE NUOVA LOGICA ---
 
         colorPreview.setBackground(selectedColor[0]);
 
         // Layout
         JPanel main = new JPanel(new GridBagLayout());
         main.setBackground(ColorsConstant.LIGHT_GREY);
+        main.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10)); // Padding
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(6, 6, 6, 6);
         gbc.anchor = GridBagConstraints.WEST;
@@ -302,6 +358,7 @@ public class AddEditToDoDialog extends JDialog {
         y++;
         gbc.gridx = 1; gbc.gridy = y;
         JPanel btnRow = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        btnRow.setOpaque(false); // Sfondo trasparente
         JButton salva = new JButton(toEdit == null ? "Salva ToDo" : "Salva modifiche");
         JButton annulla = new JButton("Annulla");
         btnRow.add(annulla);
@@ -356,11 +413,207 @@ public class AddEditToDoDialog extends JDialog {
         updateCharCount(titoloField.getText().length(), titoloCountLabel, MAX_TITOLO_CHARS);
         updateCharCount(descrizioneArea.getText().length(), descCountLabel, MAX_DESC_CHARS);
 
-        getContentPane().add(main);
-        pack();
-        setLocationRelativeTo(parent);
-        setVisible(true);
+        return main;
     }
+
+    /**
+     * NUOVO: Crea il pannello "Condivisioni".
+     */
+    private JPanel createSharingPanel() {
+        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
+        mainPanel.setBackground(ColorsConstant.LIGHT_GREY);
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        // --- 1. Sezione: Utenti Attuali ---
+        JPanel currentUsersPanel = new JPanel(new BorderLayout(0, 5));
+        currentUsersPanel.setOpaque(false);
+        currentUsersPanel.setBorder(BorderFactory.createTitledBorder("Attualmente Condiviso Con"));
+
+        sharedListModel = new DefaultListModel<>();
+        sharedList = new JList<>(sharedListModel);
+
+        sharedList.setCellRenderer(new SharedUserRenderer());
+
+        JScrollPane sharedScroll = new JScrollPane(sharedList);
+        sharedScroll.setPreferredSize(new Dimension(300, 150));
+        currentUsersPanel.add(sharedScroll, BorderLayout.CENTER);
+
+        // Pulsanti per la lista utenti
+        JPanel sharedButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        sharedButtons.setOpaque(false);
+        JButton modificaPermessoBtn = new JButton("Modifica Permesso");
+        JButton rimuoviCondivisioneBtn = new JButton("Rimuovi");
+        sharedButtons.add(modificaPermessoBtn);
+        sharedButtons.add(rimuoviCondivisioneBtn);
+        currentUsersPanel.add(sharedButtons, BorderLayout.SOUTH);
+
+        mainPanel.add(currentUsersPanel, BorderLayout.CENTER);
+
+        // --- 2. Sezione: Aggiungi Utente ---
+        JPanel addUserPanel = new JPanel(new BorderLayout(0, 5));
+        addUserPanel.setOpaque(false);
+        addUserPanel.setBorder(BorderFactory.createTitledBorder("Aggiungi Condivisione"));
+
+        // Ricerca
+        JPanel searchPanel = new JPanel(new BorderLayout(5, 0));
+        searchPanel.setOpaque(false);
+        searchField = new JTextField();
+        JButton searchBtn = new JButton("Cerca");
+        searchPanel.add(searchField, BorderLayout.CENTER);
+        searchPanel.add(searchBtn, BorderLayout.EAST);
+        addUserPanel.add(searchPanel, BorderLayout.NORTH);
+
+        // Risultati ricerca
+        searchListModel = new DefaultListModel<>();
+        searchList = new JList<>(searchListModel);
+        searchList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        JScrollPane searchScroll = new JScrollPane(searchList);
+        searchScroll.setPreferredSize(new Dimension(300, 100));
+        addUserPanel.add(searchScroll, BorderLayout.CENTER);
+
+        // Azione di Aggiunta
+        JPanel addActionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        addActionPanel.setOpaque(false);
+        permessoCombo = new JComboBox<>(PermessoCondivisione.values());
+        JButton aggiungiCondivisioneBtn = new JButton("Aggiungi");
+        addActionPanel.add(new JLabel("Permesso:"));
+        addActionPanel.add(permessoCombo);
+        addActionPanel.add(aggiungiCondivisioneBtn);
+        addUserPanel.add(addActionPanel, BorderLayout.SOUTH);
+
+        mainPanel.add(addUserPanel, BorderLayout.SOUTH);
+
+        // --- 3. LOGICA (Listeners) ---
+
+        // Cerca Utente
+        searchBtn.addActionListener(e -> cercaUtenti());
+        searchField.addActionListener(e -> cercaUtenti()); // Cerca anche con Invio
+
+        // Aggiungi Condivisione
+        aggiungiCondivisioneBtn.addActionListener(e -> aggiungiCondivisione());
+
+        // Rimuovi Condivisione
+        rimuoviCondivisioneBtn.addActionListener(e -> rimuoviCondivisione());
+
+        // Modifica Permesso
+        modificaPermessoBtn.addActionListener(e -> modificaPermesso());
+
+        return mainPanel;
+    }
+
+    /**
+     * NUOVO: Popola la lista degli utenti condivisi
+     */
+    private void loadSharedUsers() {
+        if (toEdit == null) return;
+
+        sharedListModel.clear();
+        Map<Utente, PermessoCondivisione> condivisioni = toEdit.getCondivisioni();
+        if (condivisioni != null) {
+            sharedListModel.addAll(condivisioni.entrySet());
+        }
+    }
+
+    /**
+     * NUOVO: Logica per il pulsante "Cerca"
+     */
+    private void cercaUtenti() {
+        String query = searchField.getText().trim();
+        if (query.isEmpty()) return;
+
+        searchListModel.clear();
+        List<Utente> utentiTrovati = ctrl.cercaUtenti(query);
+
+        // Filtra utenti già presenti nella lista
+        Map<Utente, PermessoCondivisione> giaCondivisi = toEdit.getCondivisioni();
+        List<Integer> idGiaCondivisi = giaCondivisi.keySet().stream()
+                .map(Utente::getIdUtente)
+                .toList();
+
+        for (Utente u : utentiTrovati) {
+            if (!idGiaCondivisi.contains(u.getIdUtente())) {
+                searchListModel.addElement(u);
+            }
+        }
+    }
+
+    /**
+     * NUOVO: Logica per il pulsante "Aggiungi"
+     */
+    private void aggiungiCondivisione() {
+        Utente utenteSelezionato = searchList.getSelectedValue();
+        if (utenteSelezionato == null) {
+            JOptionPane.showMessageDialog(this, "Seleziona un utente dai risultati della ricerca.", "Errore", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        PermessoCondivisione permesso = (PermessoCondivisione) permessoCombo.getSelectedItem();
+
+        // Chiamiamo il controller (che aggiorna DB e modello)
+        ctrl.onAggiungiCondivisione(toEdit, utenteSelezionato, permesso);
+
+        // Aggiorniamo la UI
+        loadSharedUsers(); // Ricarica la lista "Attualmente Condiviso"
+        searchListModel.removeElement(utenteSelezionato); // Rimuovi dalla lista "Risultati"
+    }
+
+    /**
+     * NUOVO: Logica per il pulsante "Rimuovi"
+     */
+    private void rimuoviCondivisione() {
+        Map.Entry<Utente, PermessoCondivisione> selezionato = sharedList.getSelectedValue();
+        if (selezionato == null) {
+            JOptionPane.showMessageDialog(this, "Seleziona un utente dalla lista \"Attualmente Condiviso Con\".", "Errore", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        Utente utenteDaRimuovere = selezionato.getKey();
+
+        int conf = JOptionPane.showConfirmDialog(this,
+                "Rimuovere " + utenteDaRimuovere.getUsername() + " dalla condivisione?",
+                "Conferma Rimozione",
+                JOptionPane.YES_NO_OPTION);
+
+        if (conf == JOptionPane.YES_OPTION) {
+            // Chiamiamo il controller
+            ctrl.onRimuoviCondivisione(toEdit, utenteDaRimuovere);
+            // Aggiorniamo la UI
+            loadSharedUsers();
+        }
+    }
+
+    /**
+     * NUOVO: Logica per il pulsante "Modifica Permesso"
+     */
+    private void modificaPermesso() {
+        Map.Entry<Utente, PermessoCondivisione> selezionato = sharedList.getSelectedValue();
+        if (selezionato == null) {
+            JOptionPane.showMessageDialog(this, "Seleziona un utente dalla lista \"Attualmente Condiviso Con\".", "Errore", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        Utente utente = selezionato.getKey();
+        PermessoCondivisione permessoAttuale = selezionato.getValue();
+
+        // Chiedi all'utente il nuovo permesso
+        PermessoCondivisione nuovoPermesso = (PermessoCondivisione) JOptionPane.showInputDialog(
+                this,
+                "Seleziona il nuovo permesso per " + utente.getUsername() + ":",
+                "Modifica Permesso",
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                PermessoCondivisione.values(), // Array di opzioni
+                permessoAttuale // Opzione preselezionata
+        );
+
+        if (nuovoPermesso != null && nuovoPermesso != permessoAttuale) {
+            // Chiamiamo il controller
+            ctrl.onModificaPermesso(toEdit, utente, nuovoPermesso);
+            // Aggiorniamo la UI
+            loadSharedUsers();
+        }
+    }
+
 
     // --- Metodo helper per troncare il testo ---
     private String troncaTesto(String testo, int maxLen) {
@@ -404,6 +657,33 @@ public class AddEditToDoDialog extends JDialog {
             label.setForeground(Color.RED);
         } else {
             label.setForeground(Color.GRAY);
+        }
+    }
+
+    /**
+     * NUOVO: Classe interna per renderizzare la lista degli utenti condivisi.
+     * Mostra "Username (Permesso)"
+     */
+    private static class SharedUserRenderer extends DefaultListCellRenderer {
+        @Override
+        public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+            // Inizia con il rendering di default
+            Component c = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+
+            if (value instanceof Map.Entry) {
+                try {
+                    Map.Entry<?, ?> entry = (Map.Entry<?, ?>) value;
+                    Utente utente = (Utente) entry.getKey();
+                    PermessoCondivisione permesso = (PermessoCondivisione) entry.getValue();
+
+                    // Imposta il testo personalizzato
+                    setText(utente.getUsername() + " (" + permesso.toString() + ")");
+
+                } catch (Exception e) {
+                    setText("Errore nel rendering");
+                }
+            }
+            return c;
         }
     }
 }

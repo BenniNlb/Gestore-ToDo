@@ -1,8 +1,11 @@
 package gui.cards;
 
 import controllers.MainController;
+import model.PermessoCondivisione;
 import model.ToDo;
 import gui.dialogs.*;
+import model.Utente;
+// Rimosso import IconUtils
 
 import javax.swing.*;
 import java.awt.*;
@@ -14,6 +17,7 @@ import java.util.List;
 
 import java.time.LocalDate;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class ToDoCard extends JPanel {
     private static final int MIN_HEIGHT = 90;
@@ -27,22 +31,26 @@ public class ToDoCard extends JPanel {
         }
     }
 
-    // MODIFICATO: Aggiunto boolean draggable
     public ToDoCard(ToDo todo, MainController ctrl, int cardWidth, boolean draggable) {
         setLayout(new BorderLayout(0, 4)); // 4px di gap verticale
         setBackground(todo.getColoreSfondo() != null ? todo.getColoreSfondo() : Color.WHITE);
-        setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Color.LIGHT_GRAY, 1),
-                BorderFactory.createEmptyBorder(8, 10, 8, 10)
-        ));
+
+        setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
 
         Insets insets = getBorder().getBorderInsets(this);
         int contentWidth = cardWidth - insets.left - insets.right;
         if (contentWidth <= 0) contentWidth = 100; // Fallback
 
-        // --- MODIFICATO: Tutta la logica DnD è ora condizionale ---
-        if (draggable) {
-            // Drag handler
+        final int idUtenteLoggato = ctrl.getUtenteLoggato().getIdUtente();
+        final boolean isAuthor = (idUtenteLoggato == todo.getIdUtenteCreatore());
+        final PermessoCondivisione mioPermesso = todo.getPermessoPerUtente(ctrl.getUtenteLoggato());
+        final boolean canEdit = isAuthor || PermessoCondivisione.MODIFICA.equals(mioPermesso);
+        final boolean canDelete = isAuthor;
+        final boolean canManageShares = isAuthor;
+
+
+        // --- Logica DnD ---
+        if (draggable && canEdit) {
             setTransferHandler(new TransferHandler() {
                 @Override
                 protected Transferable createTransferable(JComponent c) {
@@ -77,18 +85,24 @@ public class ToDoCard extends JPanel {
                 }
             });
         }
-        // --- FINE MODIFICA ---
 
         // ===== TOP ROW (CHECKBOX + TITOLO) [BorderLayout.NORTH] =====
         JPanel topRow = new JPanel(new BorderLayout(5, 0));
         topRow.setOpaque(false);
 
-        JLabel titolo = new JLabel(troncaTesto(todo.getTitolo(), 20));
+        final JTextArea titolo = new JTextArea(todo.getTitolo());
+        titolo.setLineWrap(true);
+        titolo.setWrapStyleWord(true);
+        titolo.setEditable(false);
+        titolo.setOpaque(false);
+        titolo.setFocusable(false);
+        titolo.setBorder(null);
         titolo.setFont(new Font("SansSerif", Font.BOLD, 15));
 
         JCheckBox checkCompletato = new JCheckBox();
         checkCompletato.setOpaque(false);
         checkCompletato.setSelected(todo.isCompletato());
+        checkCompletato.setEnabled(canEdit);
 
         boolean scaduto = todo.getDataScadenza() != null && todo.getDataScadenza().isBefore(LocalDate.now());
 
@@ -109,6 +123,24 @@ public class ToDoCard extends JPanel {
 
         topRow.add(checkCompletato, BorderLayout.WEST);
         topRow.add(titolo, BorderLayout.CENTER);
+
+        Map<Utente, PermessoCondivisione> condivisioni = todo.getCondivisioni();
+        if (condivisioni != null && !condivisioni.isEmpty()) {
+            JLabel shareIcon = new JLabel("👥 " + condivisioni.size()); // Testo emoji
+            shareIcon.setFont(new Font("SansSerif", Font.PLAIN, 16));
+            shareIcon.setToolTipText("Condiviso con " + condivisioni.size() + " utenti");
+            shareIcon.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 5));
+            shareIcon.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+            shareIcon.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    mostraCondivisioni(todo, ctrl);
+                }
+            });
+            topRow.add(shareIcon, BorderLayout.EAST);
+        }
+
         add(topRow, BorderLayout.NORTH);
 
         // ===== CONTENT PANEL (Descrizione e Immagine) [BorderLayout.CENTER] =====
@@ -116,7 +148,6 @@ public class ToDoCard extends JPanel {
         contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
         contentPanel.setOpaque(false);
 
-        // ===== DESCRIZIONE (opzionale) =====
         if (todo.getDescrizione() != null && !todo.getDescrizione().isBlank()) {
             JTextArea desc = new JTextArea(troncaTesto(todo.getDescrizione(), 500));
             desc.setLineWrap(true);
@@ -130,7 +161,6 @@ public class ToDoCard extends JPanel {
             contentPanel.add(desc);
         }
 
-        // ===== IMMAGINE (opzionale) =====
         if (todo.getImmagine() != null) {
             ImageIcon img = todo.getImmagine();
             ImageIcon scaled = scaleIconToWidth(img, contentWidth);
@@ -155,15 +185,18 @@ public class ToDoCard extends JPanel {
         JLabel dateLabel = new JLabel(todo.getDataScadenza() != null ? todo.getDataScadenza().toString() : "Senza data");
         dateLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
 
-        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         right.setOpaque(false);
 
-        JButton linksBtn = new JButton("🔗");
+        JButton linksBtn = new JButton("Links");
+        linksBtn.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        linksBtn.setToolTipText("Mostra link");
         linksBtn.addActionListener(e -> mostraLinks(todo));
         right.add(linksBtn);
 
         JButton menuBtn = new JButton("⋯");
-        menuBtn.addActionListener(e -> mostraMenu(ctrl, todo, menuBtn));
+        menuBtn.setFont(new Font("SansSerif", Font.BOLD, 16));
+        menuBtn.addActionListener(e -> mostraMenu(ctrl, todo, menuBtn, canEdit, canDelete, canManageShares));
         right.add(menuBtn);
 
         footer.add(dateLabel);
@@ -177,6 +210,56 @@ public class ToDoCard extends JPanel {
     }
 
     // ===== FUNZIONI DI SUPPORTO =====
+
+    private void mostraCondivisioni(ToDo todo, MainController ctrl) {
+        Map<Utente, PermessoCondivisione> condivisioni = todo.getCondivisioni();
+        int idUtenteLoggato = ctrl.getUtenteLoggato().getIdUtente();
+        int idAutore = todo.getIdUtenteCreatore();
+
+        Utente autore = ctrl.getUtenteById(idAutore);
+        if (autore == null) {
+            JOptionPane.showMessageDialog(this, "Errore nel recuperare l'autore.", "Errore", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder("<html><b>Partecipanti:</b><br>");
+
+        String nomeAutore = autore.getUsername();
+        String etichettaTuAutore = "";
+        if (autore.getIdUtente() == idUtenteLoggato) {
+            etichettaTuAutore = " (tu)";
+        }
+        sb.append("•  ")
+                .append(nomeAutore)
+                .append(etichettaTuAutore)
+                .append(" (<i>Autore</i>)<br>");
+
+        if (condivisioni != null) {
+            for (Map.Entry<Utente, PermessoCondivisione> entry : condivisioni.entrySet()) {
+                Utente utenteCondiviso = entry.getKey();
+
+                if (utenteCondiviso.getIdUtente() == idAutore) continue;
+
+                String nomeCondiviso = utenteCondiviso.getUsername();
+                String ruolo = entry.getValue().toString();
+                String etichettaTuCondiviso = "";
+                if (utenteCondiviso.getIdUtente() == idUtenteLoggato) {
+                    etichettaTuCondiviso = " (tu)";
+                }
+
+                sb.append("•  ")
+                        .append(nomeCondiviso)
+                        .append(etichettaTuCondiviso)
+                        .append(" (<i>")
+                        .append(ruolo)
+                        .append("</i>)<br>");
+            }
+        }
+        sb.append("</html>");
+
+        JOptionPane.showMessageDialog(this, new JLabel(sb.toString()), "Condivisioni", JOptionPane.INFORMATION_MESSAGE);
+    }
+
 
     private void mostraLinks(ToDo todo) {
         List<String> links = todo.getLinkURLs();
@@ -217,23 +300,48 @@ public class ToDoCard extends JPanel {
         dlg.setVisible(true);
     }
 
-    private void mostraMenu(MainController ctrl, ToDo todo, JButton anchor) {
+    /**
+     * MODIFICATO: Accetta i booleani dei permessi
+     */
+    private void mostraMenu(MainController ctrl, ToDo todo, JButton anchor, boolean canEdit, boolean canDelete, boolean canManageShares) {
         JPopupMenu popup = new JPopupMenu();
-        JMenuItem edit = new JMenuItem("Modifica");
-        JMenuItem del = new JMenuItem("Elimina");
 
+        // 1. Modifica
+        JMenuItem edit = new JMenuItem("Modifica");
         edit.addActionListener(ev -> {
             Window owner = SwingUtilities.getWindowAncestor(ToDoCard.this);
-            new AddEditToDoDialog(owner, ctrl, todo);
+            // --- MODIFICA: Chiamata con boolean ---
+            new AddEditToDoDialog(owner, ctrl, todo, true); // true = Dettagli
+            // --- FINE MODIFICA ---
         });
+        edit.setEnabled(canEdit);
+        popup.add(edit);
+
+        // 2. Gestisci Condivisioni
+        JMenuItem share = new JMenuItem("Gestisci Condivisioni...");
+        share.addActionListener(ev -> {
+            Window owner = SwingUtilities.getWindowAncestor(ToDoCard.this);
+            // --- MODIFICA: Chiamata con boolean ---
+            new AddEditToDoDialog(owner, ctrl, todo, false); // false = Condivisioni
+            // --- FINE MODIFICA ---
+        });
+        share.setEnabled(canManageShares);
+        popup.add(share);
+
+        popup.addSeparator();
+
+        // 3. Elimina
+        JMenuItem del = new JMenuItem("Elimina");
+        del.setForeground(Color.RED);
         del.addActionListener(ev -> {
             int conf = JOptionPane.showConfirmDialog(this, "Eliminare questo ToDo?", "Conferma", JOptionPane.YES_NO_OPTION);
             if (conf == JOptionPane.YES_OPTION) {
                 ctrl.onDeleteToDo(todo);
             }
         });
-        popup.add(edit);
+        del.setEnabled(canDelete);
         popup.add(del);
+
         popup.show(anchor, 0, anchor.getHeight());
     }
 
@@ -241,6 +349,8 @@ public class ToDoCard extends JPanel {
         if (testo == null) return "";
         return testo.length() > maxLen ? testo.substring(0, maxLen) + "…" : testo;
     }
+
+
 
     private ImageIcon scaleIconToWidth(ImageIcon src, int maxWidth) {
         if (src == null) return null;
@@ -255,7 +365,7 @@ public class ToDoCard extends JPanel {
 
         if (newH <= 0) newH = 1;
 
-        Image scaled = src.getImage().getScaledInstance(newW, newH, Image.SCALE_SMOOTH);
+        Image scaled = src.getImage().getScaledInstance(newW, newH, Image.SCALE_AREA_AVERAGING);
         return new ImageIcon(scaled);
     }
 }

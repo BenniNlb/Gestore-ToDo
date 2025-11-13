@@ -1,15 +1,9 @@
 package gui.views;
 
-import controllers.MainController;
-import gui.panels.BachecaPanel;
-import gui.panels.InScadenzaPanel;
-import gui.panels.WrapPanel;
+import controllers.*;
+import gui.panels.*;
 import gui.dialogs.AddBachecaDialog;
-import model.Bacheca;
-import model.TitoloBacheca;
-import model.ToDo;
-import model.Utente; // IMPORTA UTENTE
-import util.ColorsConstant;
+import model.*;
 
 import javax.swing.*;
 import java.awt.*;
@@ -24,10 +18,8 @@ import java.util.stream.Stream;
 public class MainView extends JFrame {
     private final MainController mainCtrl;
     private final JPanel centerPanel;
-    private final JTextField searchField;
     private final JPanel top; // header panel
 
-    // Riferimento all'utente che ha fatto il login
     private final Utente utenteLoggato;
 
     // Parametri configurabili
@@ -38,20 +30,17 @@ public class MainView extends JFrame {
     // Stato per la visibilità del pannello Scadenze
     private boolean showInScadenza = true;
 
-    // --- MODIFICATO: Il costruttore accetta l'Utente ---
     public MainView(Utente utente) {
-        this.utenteLoggato = utente; // Salva l'utente
-
-        // Passa l'utente al controller
+        this.utenteLoggato = utente;
         mainCtrl = new MainController(utenteLoggato);
 
         try {
             mainCtrl.getBachecaController().addChangeListener(this::refreshCenter);
         } catch (Exception ignored) {}
 
-        setTitle("Gestore ToDo - (" + utenteLoggato.getUsername() + ")"); // Mostra l'utente
+        setTitle("Dashboard di " + utenteLoggato.getUsername());
         setSize(1200, 700);
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
@@ -65,47 +54,59 @@ public class MainView extends JFrame {
         titlePanel.setOpaque(false);
         titlePanel.setBorder(BorderFactory.createEmptyBorder(12, 10, 8, 10));
 
-        JLabel appTitle = new JLabel("Gestore ToDo");
+        JLabel appTitle = new JLabel("Ciao, " + utenteLoggato.getUsername());
+
         appTitle.setFont(new Font("SansSerif", Font.BOLD, 28));
         appTitle.setForeground(Color.BLACK);
         titlePanel.add(appTitle, BorderLayout.WEST);
 
-        JButton addBachecaBtn = new JButton("+");
-        addBachecaBtn.setFont(new Font("SansSerif", Font.BOLD, 16));
-        addBachecaBtn.setMargin(new Insets(0, 6, 0, 6));
+        // --- NUOVA INTESTAZIONE DESTRA (con testo al posto delle icone) ---
+        JPanel eastHeaderButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        eastHeaderButtons.setOpaque(false);
+
+        // Pulsante Aggiungi Bacheca (Testo)
+        JButton addBachecaBtn = new JButton("Aggiungi Bacheca");
+        addBachecaBtn.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        addBachecaBtn.setToolTipText("Aggiungi una nuova bacheca");
         addBachecaBtn.addActionListener(e -> showAddBachecaDialog());
+        eastHeaderButtons.add(addBachecaBtn);
 
-        JPanel plusButtonWrapper = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
-        plusButtonWrapper.setOpaque(false);
-        plusButtonWrapper.add(addBachecaBtn);
+        // Pulsante Cerca (Testo)
+        JButton searchButton = new JButton("Cerca");
+        searchButton.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        searchButton.setToolTipText("Cerca ToDo");
+        searchButton.addActionListener(e -> showSearchDialog());
+        eastHeaderButtons.add(searchButton);
 
-        titlePanel.add(plusButtonWrapper, BorderLayout.EAST);
+        // Pulsante Filtri (Testo)
+        JButton filtriBtn = new JButton("Filtri");
+        filtriBtn.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        filtriBtn.setToolTipText("Filtri e Opzioni");
+        filtriBtn.addActionListener(e -> showFiltriMenu(filtriBtn));
+        eastHeaderButtons.add(filtriBtn);
+
+        // Pulsante Logout in Rosso con Conferma
+        JButton logoutButton = new JButton("Logout");
+        logoutButton.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        logoutButton.setForeground(Color.RED);
+        logoutButton.addActionListener(e -> doLogout());
+        eastHeaderButtons.add(logoutButton);
+
+        titlePanel.add(eastHeaderButtons, BorderLayout.EAST);
+        // --- FINE NUOVA INTESTAZIONE ---
 
         top.add(titlePanel, BorderLayout.NORTH);
-
-        // 2. Pannello Ricerca (con Bottone Filtri ⛶)
-        JPanel searchPanel = new JPanel(new BorderLayout(5, 5));
-        searchPanel.setBackground(Color.WHITE);
-        searchPanel.setBorder(BorderFactory.createEmptyBorder(0, 10, 10, 10));
-
-        searchField = new JTextField();
-        searchField.setToolTipText("Cerca per titolo o descrizione (premi Invio)");
-        searchField.addActionListener(e -> doSearch(searchField.getText()));
-        searchField.setBackground(ColorsConstant.LIGHT_GREY);
-        searchPanel.add(searchField, BorderLayout.CENTER);
-
-        JButton filtriBtn = new JButton("Filtri ⛶");
-        filtriBtn.addActionListener(e -> showFiltriMenu(filtriBtn));
-        searchPanel.add(filtriBtn, BorderLayout.EAST);
-
-        top.add(searchPanel, BorderLayout.CENTER);
 
         add(top, BorderLayout.NORTH);
 
         // CENTER
         centerPanel = new JPanel();
         centerPanel.setLayout(new BoxLayout(centerPanel, BoxLayout.X_AXIS));
+
+        // --- MODIFICA: Sfondo Dashboard ripristinato a bianco ---
         centerPanel.setBackground(Color.WHITE);
+        // --- FINE MODIFICA ---
+
         centerPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         add(centerPanel, BorderLayout.CENTER);
 
@@ -121,7 +122,35 @@ public class MainView extends JFrame {
         refreshCenter();
         setVisible(true);
     }
-    // --- FINE COSTRUTTORE MODIFICATO ---
+
+    // Metodo Logout con conferma
+    private void doLogout() {
+        int confirm = JOptionPane.showConfirmDialog(
+                this,
+                "Sei sicuro di voler effettuare il logout?",
+                "Conferma Logout",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE
+        );
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            this.dispose();
+            SwingUtilities.invokeLater(() -> new LoginView().setVisible(true));
+        }
+    }
+
+    // Metodo per Dialog Ricerca
+    private void showSearchDialog() {
+        String query = JOptionPane.showInputDialog(
+                this,
+                "Cerca per titolo o descrizione:",
+                "Ricerca ToDo",
+                JOptionPane.PLAIN_MESSAGE
+        );
+        if (query != null && !query.trim().isEmpty()) {
+            doSearch(query.trim());
+        }
+    }
 
     /**
      * Ricostruisce la schermata principale con larghezze reattive.
@@ -129,8 +158,6 @@ public class MainView extends JFrame {
     public void refreshCenter() {
         centerPanel.removeAll();
         centerPanel.setLayout(new BoxLayout(centerPanel, BoxLayout.X_AXIS));
-
-        searchField.setText("");
 
         int containerWidth = getContentPane().getWidth();
         if (containerWidth <= 0) containerWidth = getWidth();
@@ -219,7 +246,9 @@ public class MainView extends JFrame {
         centerPanel.setLayout(new BorderLayout());
 
         JPanel topRow = new JPanel(new BorderLayout());
+        // --- MODIFICA: Sfondo Risultati ripristinato a bianco ---
         topRow.setBackground(Color.WHITE);
+        // --- FINE MODIFICA ---
         topRow.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         JLabel title = new JLabel(titleText);
@@ -237,10 +266,16 @@ public class MainView extends JFrame {
             no.setHorizontalAlignment(SwingConstants.CENTER);
             no.setFont(new Font("SansSerif", Font.ITALIC, 14));
             no.setForeground(Color.GRAY);
+            // --- MODIFICA: Sfondo Risultati ripristinato a bianco ---
+            no.setOpaque(true); // Rendi opaco per mostrare lo sfondo bianco
+            no.setBackground(Color.WHITE);
+            // --- FINE MODIFICA ---
             centerPanel.add(no, BorderLayout.CENTER);
         } else {
             WrapPanel results = new WrapPanel();
+            // --- MODIFICA: Sfondo Risultati ripristinato a bianco ---
             results.setBackground(Color.WHITE);
+            // --- FINE MODIFICA ---
             results.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
             int cardWidth = 300;
@@ -260,7 +295,9 @@ public class MainView extends JFrame {
                     JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
                     JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
             );
+            // --- MODIFICA: Sfondo Risultati ripristinato a bianco ---
             resultsScrollPane.getViewport().setBackground(Color.WHITE);
+            // --- FINE MODIFICA ---
             resultsScrollPane.setBorder(null);
 
             resultsScrollPane.getVerticalScrollBar().setPreferredSize(new Dimension(0, 0));
@@ -340,8 +377,4 @@ public class MainView extends JFrame {
         this.showInScadenza = showInScadenza;
         refreshCenter();
     }
-
-    // --- FINE METODI HELPER ---
-
-    // --- METODO MAIN RIMOSSO ---
 }
