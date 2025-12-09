@@ -9,65 +9,116 @@ import model.Utente;
 import java.util.*;
 
 /**
- * Controller che gestisce le bacheche.
- * MODIFICATO: Usa una List ordinata dal DB (tramite 'posizioneB').
+ * Controller (Control) responsabile della gestione delle bacheche.
+ * <p>
+ * Questa classe gestisce la logica di business relativa alle bacheche ({@link Bacheca})
+ * di un utente specifico. Le sue responsabilità includono:
+ * <ul>
+ * <li>Caricamento delle bacheche dal database (o creazione di quelle di default per i nuovi utenti).</li>
+ * <li>Aggiunta e rimozione di bacheche, garantendo la coerenza dei dati.</li>
+ * <li>Gestione dell'ordinamento personalizzato delle bacheche (campo {@code posizioneB}).</li>
+ * <li>Notifica agli osservatori (View) quando lo stato del modello cambia.</li>
+ * </ul>
  */
 public class BachecaController {
 
+    /**
+     * Lista in memoria delle bacheche dell'utente, mantenuta ordinata per posizione.
+     */
     private List<Bacheca> bacheche;
+
+    /**
+     * Lista di listener (osservatori) da notificare in caso di cambiamenti.
+     */
     private final List<Runnable> listeners = new ArrayList<>();
+
+    /**
+     * L'utente attualmente loggato nel sistema.
+     */
     private final Utente utenteLoggato;
+
+    /**
+     * Oggetto DAO per l'accesso ai dati delle bacheche nel database.
+     */
     private final BachecaDAO bachecaDAO;
 
+    /**
+     * Costruisce un nuovo controller per le bacheche.
+     * <p>
+     * Inizializza il DAO, imposta l'utente corrente e carica immediatamente
+     * lo stato delle bacheche dal database.
+     *
+     * @param utente L'utente di cui gestire le bacheche.
+     */
     public BachecaController(Utente utente) {
         this.utenteLoggato = utente;
         this.bachecaDAO = new PostgresBachecaDAO();
         this.bacheche = new ArrayList<>();
 
-        // Carica le bacheche dell'utente dal DB
         loadBachecheFromDB();
     }
 
     /**
-     * Carica le bacheche dal DB.
-     * Il DAO ora le restituisce GIA ordinate per 'posizioneB'.
+     * Carica la lista delle bacheche dal database.
+     * <p>
+     * Se l'utente non ha ancora nessuna bacheca (es. primo accesso),
+     * il metodo crea automaticamente le tre bacheche di default (Università, Lavoro, Tempo Libero),
+     * le salva nel database e le carica in memoria.
      */
     private void loadBachecheFromDB() {
         List<Bacheca> bachecheList = bachecaDAO.getBachecheByUtente(utenteLoggato.getIdUtente());
 
         if (bachecheList.isEmpty()) {
-            // Primo login: crea e salva le bacheche di default con posizione
             int pos = 0;
             for (TitoloBacheca t : Arrays.asList(
                     TitoloBacheca.UNIVERSITA,
                     TitoloBacheca.LAVORO,
                     TitoloBacheca.TEMPO_LIBERO)) {
 
-                Bacheca nuovaBacheca = new Bacheca(t, "", utenteLoggato.getIdUtente(), pos++); // --- MODIFICA ---
-                bachecaDAO.addBacheca(nuovaBacheca); // Salva su DB
-                bachecheList.add(nuovaBacheca); // Aggiungi alla lista
+                Bacheca nuovaBacheca = new Bacheca(t, "", utenteLoggato.getIdUtente(), pos++);
+                bachecaDAO.addBacheca(nuovaBacheca);
+                bachecheList.add(nuovaBacheca);
             }
         }
 
-        // --- MODIFICA: La lista è già ordinata dal DAO ---
         this.bacheche = bachecheList;
-        // --- FINE MODIFICA ---
     }
 
+    /**
+     * Registra un listener che verrà eseguito ogni volta che il modello delle bacheche cambia.
+     *
+     * @param listener Un oggetto {@link Runnable} contenente la logica di aggiornamento (es. refresh della UI).
+     */
     public void addChangeListener(Runnable listener) {
         listeners.add(listener);
     }
 
+    /**
+     * Notifica tutti i listener registrati di un cambiamento nel modello.
+     * I listener vengono eseguiti in sequenza. Eventuali eccezioni nei listener vengono ignorate
+     * per non interrompere il flusso di notifica.
+     */
     private void notifyListeners() {
         for (Runnable l : listeners) {
             try { l.run(); } catch (Exception ignored) { }
         }
     }
 
+    /**
+     * Restituisce la lista completa delle bacheche dell'utente.
+     *
+     * @return Una {@link List} di oggetti {@link Bacheca}.
+     */
     public List<Bacheca> getAllBacheche() {
         return bacheche;
     }
 
+    /**
+     * Cerca e restituisce una bacheca specifica in base al titolo.
+     *
+     * @param titolo Il {@link TitoloBacheca} da cercare.
+     * @return L'oggetto {@link Bacheca} corrispondente, o {@code null} se non trovato.
+     */
     public Bacheca getBacheca(TitoloBacheca titolo) {
         for (Bacheca b : bacheche) {
             if (b.getTitolo() == titolo) {
@@ -77,6 +128,16 @@ public class BachecaController {
         return null;
     }
 
+    /**
+     * Aggiunge una nuova bacheca per l'utente.
+     * <p>
+     * Verifica che il titolo sia valido e che la bacheca non esista già.
+     * La nuova bacheca viene posizionata alla fine della lista.
+     *
+     * @param titolo      Il titolo della nuova bacheca.
+     * @param descrizione Una descrizione opzionale.
+     * @throws IllegalArgumentException Se il titolo non è valido o la bacheca esiste già.
+     */
     public void aggiungiBacheca(TitoloBacheca titolo, String descrizione) {
         if (!EnumSet.of(TitoloBacheca.UNIVERSITA, TitoloBacheca.LAVORO, TitoloBacheca.TEMPO_LIBERO)
                 .contains(titolo)) {
@@ -87,20 +148,25 @@ public class BachecaController {
             throw new IllegalArgumentException("Bacheca '" + titolo + "' già esistente");
         }
 
-        // --- MODIFICA: Calcola la nuova posizioneB ---
         int nuovaPosizione = this.bacheche.size();
         Bacheca nuovaBacheca = new Bacheca(titolo, descrizione != null ? descrizione : "", utenteLoggato.getIdUtente(), nuovaPosizione);
-        // --- FINE MODIFICA ---
 
-        bachecaDAO.addBacheca(nuovaBacheca); // Salva su DB
+        bachecaDAO.addBacheca(nuovaBacheca);
 
-        // --- MODIFICA: Aggiunge alla lista (non serve riordinare) ---
-        bacheche.add(nuovaBacheca); // Aggiungi alla lista
-        // --- FINE MODIFICA ---
+        bacheche.add(nuovaBacheca);
 
         notifyListeners();
     }
 
+    /**
+     * Elimina una bacheca esistente.
+     * <p>
+     * Rimuove la bacheca dal database e dalla memoria, quindi ricalcola e salva
+     * l'ordine delle bacheche rimanenti per evitare "buchi" nella sequenza delle posizioni.
+     *
+     * @param titolo Il titolo della bacheca da eliminare.
+     * @throws IllegalArgumentException Se la bacheca non esiste o è l'ultima rimasta (non è permesso avere zero bacheche).
+     */
     public void eliminaBacheca(TitoloBacheca titolo) {
         Bacheca b = getBacheca(titolo);
         if (b == null) {
@@ -111,43 +177,50 @@ public class BachecaController {
             throw new IllegalArgumentException("Impossibile eliminare l'ultima bacheca.");
         }
 
-        bachecaDAO.deleteBacheca(b.getIdBacheca()); // Elimina da DB
-        bacheche.remove(b); // Rimuovi da lista
+        bachecaDAO.deleteBacheca(b.getIdBacheca());
+        bacheche.remove(b);
 
-        // --- NUOVO: Aggiorna l'ordine delle bacheche rimanenti ---
         salvaOrdineBacheche();
-        // --- FINE NUOVO ---
 
         notifyListeners();
     }
 
-    // --- NUOVO METODO ---
     /**
-     * Scorre le bacheche in memoria (che sono ordinate)
-     * e aggiorna il campo 'posizioneB' nel DB.
+     * Ricalcola e persiste l'ordine delle bacheche.
+     * <p>
+     * Itera sulla lista in memoria e aggiorna il campo {@code posizioneB} nel database
+     * per ogni bacheca il cui indice è cambiato. Questo garantisce che l'ordine visivo
+     * venga mantenuto al prossimo avvio.
      */
     private void salvaOrdineBacheche() {
         for (int i = 0; i < bacheche.size(); i++) {
             Bacheca b = bacheche.get(i);
-            // --- MODIFICA: usa getPosizioneB/setPosizioneB ---
             if (b.getPosizioneB() != i) {
                 b.setPosizioneB(i);
-                bachecaDAO.updateBacheca(b); // Salva la nuova posizioneB
+                bachecaDAO.updateBacheca(b);
             }
-            // --- FINE MODIFICA ---
         }
     }
-    // --- FINE NUOVO METODO ---
 
+    /**
+     * Modifica la descrizione di una bacheca esistente.
+     *
+     * @param titolo           Il titolo della bacheca da modificare.
+     * @param nuovaDescrizione La nuova descrizione da impostare.
+     */
     public void modificaDescrizioneBacheca(TitoloBacheca titolo, String nuovaDescrizione) {
         Bacheca b = getBacheca(titolo);
         if (b != null) {
             b.setDescrizione(nuovaDescrizione);
-            bachecaDAO.updateBacheca(b); // Salva modifica su DB
+            bachecaDAO.updateBacheca(b);
             notifyListeners();
         }
     }
 
+    /**
+     * Metodo di utilità per forzare la notifica di cambiamento ai listener.
+     * Utilizzato da altri controller per segnalare modifiche indirette (es. modifica di un ToDo).
+     */
     public void notifyChange() {
         notifyListeners();
     }
