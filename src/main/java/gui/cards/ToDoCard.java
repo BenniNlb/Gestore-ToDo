@@ -1,11 +1,10 @@
 package gui.cards;
 
 import controllers.MainController;
+import gui.dialogs.tododialog.AddEditToDoDialog;
 import model.PermessoCondivisione;
 import model.ToDo;
-import gui.dialogs.*;
 import model.Utente;
-// Rimosso import IconUtils
 
 import javax.swing.*;
 import java.awt.*;
@@ -17,11 +16,28 @@ import java.util.List;
 
 import java.time.LocalDate;
 import java.util.Map;
-import java.util.stream.Collectors;
 
+/**
+ * Pannello grafico che rappresenta una singola attività (ToDo) sotto forma di "card".
+ * <p>
+ * Questo componente è l'unità visiva base delle bacheche. Visualizza le informazioni
+ * essenziali del ToDo (titolo, checkbox di completamento, anteprima descrizione, immagine,
+ * data di scadenza) e fornisce controlli interattivi per modificarlo, eliminarlo o condividerlo.
+ * <p>
+ * Supporta il Drag &amp; Drop, permettendo all'utente di trascinare la card per riordinarla
+ * o spostarla in un'altra bacheca.
+ */
 public class ToDoCard extends JPanel {
+
+    /**
+     * Altezza minima garantita per la card, per evitare che collassi se vuota.
+     */
     private static final int MIN_HEIGHT = 90;
 
+    /**
+     * Il DataFlavor utilizzato per il trasferimento dei dati durante il Drag &amp; Drop.
+     * Identifica univocamente l'oggetto {@link ToDo} trasferito.
+     */
     private static final DataFlavor TODO_FLAVOR;
     static {
         try {
@@ -31,6 +47,18 @@ public class ToDoCard extends JPanel {
         }
     }
 
+    /**
+     * Costruisce una nuova card per visualizzare un ToDo.
+     * <p>
+     * Configura il layout, lo stile (sfondo, bordi), inizializza i componenti interni
+     * (titolo, descrizione, pulsanti) e imposta i listener per gli eventi del mouse
+     * e il Drag &amp; Drop.
+     *
+     * @param todo      L'oggetto {@link ToDo} da visualizzare.
+     * @param ctrl      Il controller principale per gestire le azioni utente.
+     * @param cardWidth La larghezza desiderata per la card (in pixel).
+     * @param draggable {@code true} se la card deve essere trascinabile (Drag &amp; Drop), {@code false} altrimenti.
+     */
     public ToDoCard(ToDo todo, MainController ctrl, int cardWidth, boolean draggable) {
         setLayout(new BorderLayout(0, 4)); // 4px di gap verticale
         setBackground(todo.getColoreSfondo() != null ? todo.getColoreSfondo() : Color.WHITE);
@@ -86,7 +114,6 @@ public class ToDoCard extends JPanel {
             });
         }
 
-        // ===== TOP ROW (CHECKBOX + TITOLO) [BorderLayout.NORTH] =====
         JPanel topRow = new JPanel(new BorderLayout(5, 0));
         topRow.setOpaque(false);
 
@@ -143,7 +170,6 @@ public class ToDoCard extends JPanel {
 
         add(topRow, BorderLayout.NORTH);
 
-        // ===== CONTENT PANEL (Descrizione e Immagine) [BorderLayout.CENTER] =====
         JPanel contentPanel = new JPanel();
         contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
         contentPanel.setOpaque(false);
@@ -177,7 +203,6 @@ public class ToDoCard extends JPanel {
 
         add(contentPanel, BorderLayout.CENTER);
 
-        // ===== FOOTER (Data + Pulsanti) [BorderLayout.SOUTH] =====
         JPanel footer = new JPanel();
         footer.setLayout(new BoxLayout(footer, BoxLayout.X_AXIS));
         footer.setOpaque(false);
@@ -209,7 +234,6 @@ public class ToDoCard extends JPanel {
         add(footer, BorderLayout.SOUTH);
     }
 
-    // ===== FUNZIONI DI SUPPORTO =====
 
     private void mostraCondivisioni(ToDo todo, MainController ctrl) {
         Map<Utente, PermessoCondivisione> condivisioni = todo.getCondivisioni();
@@ -300,37 +324,28 @@ public class ToDoCard extends JPanel {
         dlg.setVisible(true);
     }
 
-    /**
-     * MODIFICATO: Accetta i booleani dei permessi
-     */
+
     private void mostraMenu(MainController ctrl, ToDo todo, JButton anchor, boolean canEdit, boolean canDelete, boolean canManageShares) {
         JPopupMenu popup = new JPopupMenu();
 
-        // 1. Modifica
         JMenuItem edit = new JMenuItem("Modifica");
         edit.addActionListener(ev -> {
             Window owner = SwingUtilities.getWindowAncestor(ToDoCard.this);
-            // --- MODIFICA: Chiamata con boolean ---
-            new AddEditToDoDialog(owner, ctrl, todo, true); // true = Dettagli
-            // --- FINE MODIFICA ---
+            new AddEditToDoDialog(owner, ctrl, todo, true);
         });
         edit.setEnabled(canEdit);
         popup.add(edit);
 
-        // 2. Gestisci Condivisioni
         JMenuItem share = new JMenuItem("Gestisci Condivisioni...");
         share.addActionListener(ev -> {
             Window owner = SwingUtilities.getWindowAncestor(ToDoCard.this);
-            // --- MODIFICA: Chiamata con boolean ---
-            new AddEditToDoDialog(owner, ctrl, todo, false); // false = Condivisioni
-            // --- FINE MODIFICA ---
+            new AddEditToDoDialog(owner, ctrl, todo, false);
         });
         share.setEnabled(canManageShares);
         popup.add(share);
 
         popup.addSeparator();
 
-        // 3. Elimina
         JMenuItem del = new JMenuItem("Elimina");
         del.setForeground(Color.RED);
         del.addActionListener(ev -> {

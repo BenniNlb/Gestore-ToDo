@@ -1,4 +1,3 @@
-// File: src/database/DBConnection.java
 package database;
 
 import java.sql.Connection;
@@ -8,24 +7,55 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Questa classe gestisce la connessione al database PostgreSQL.
+ * Gestisce la connessione al database PostgreSQL utilizzando il pattern Singleton.
+ * <p>
+ * Questa classe funge da punto centralizzato per l'accesso al database "Gestore-ToDo".
+ * Garantisce che esista un'unica istanza di {@link Connection} attiva per l'intera applicazione,
+ * ottimizzando l'uso delle risorse e semplificando la gestione delle connessioni.
  */
 public class DBConnection {
+
+    /**
+     * L'istanza statica della connessione (Singleton).
+     */
     private static Connection connection = null;
-    // MODIFICATO: Aggiornato il nome del database a "Gestore-ToDo"
+
+    /**
+     * URL di connessione JDBC per il database PostgreSQL locale.
+     * Punta al database "Gestore-ToDo" sulla porta 5432.
+     */
     private static final String URL = "jdbc:postgresql://localhost:5432/Gestore-ToDo";
-    private static final String USER = "benedetta"; // Il tuo username
-    private static final String PASSWORD = "Viad2419"; // La tua password
+
+    /**
+     * Username per l'autenticazione al database.
+     */
+    private static final String USER = "benedetta";
+
+    /**
+     * Password per l'autenticazione al database.
+     */
+    private static final String PASSWORD = "Viad2419";
+
+    /**
+     * Logger per la registrazione di eventi di connessione ed errori.
+     */
     private static final Logger LOGGER = Logger.getLogger(DBConnection.class.getName());
 
+    /**
+     * Costruttore privato per impedire l'istanziazione diretta della classe.
+     * Implementa il pattern Singleton.
+     */
     private DBConnection() {
     }
 
     /**
-     * Questo metodo restituisce una connessione al database PostgreSQL.
-     * Se la connessione è già stata stabilita, restituisce quella esistente.
+     * Restituisce l'unica istanza della connessione al database.
+     * <p>
+     * Implementa la "Lazy Initialization": se la connessione non è ancora stata creata
+     * o è stata chiusa, viene stabilita una nuova connessione caricando il driver PostgreSQL.
+     * Altrimenti, viene restituita l'istanza esistente.
      *
-     * @return Connection oggetto di connessione al database
+     * @return L'oggetto {@link Connection} attivo verso il database.
      */
     public static Connection getConnection() {
         if (connection == null) {
@@ -45,8 +75,10 @@ public class DBConnection {
     }
 
     /**
-     * Questo metodo chiude la connessione al database se è aperta.
-     * Se la connessione è già chiusa, non fa nulla.
+     * Chiude la connessione al database se attualmente aperta.
+     * <p>
+     * Rilascia le risorse occupate dalla connessione e imposta l'istanza statica
+     * a {@code null}, permettendo una successiva riconnessione pulita tramite {@link #getConnection()}.
      */
     public static void closeConnection() {
         if (connection != null) {

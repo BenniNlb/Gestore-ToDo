@@ -7,33 +7,68 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 
 /**
- * Nuova finestra per la registrazione di un utente.
+ * Rappresenta la vista (View) dedicata alla registrazione di nuovi utenti nel sistema.
+ * <p>
+ * Questa classe estende {@link JFrame} e fornisce l'interfaccia grafica necessaria
+ * per l'inserimento dei dati di registrazione (username, password e conferma password).
+ * Agisce come componente Boundary nel pattern MVC, delegando la logica di business
+ * al {@link RegisterController}.
  */
 public class RegisterView extends JFrame {
 
+    /**
+     * Campo di testo per l'inserimento dell'username scelto dall'utente.
+     */
     JTextField usernameField;
-    JPasswordField passwordField;
-    JPasswordField confirmPasswordField; // NUOVO: Conferma password
-    JButton registerButton;
-    JLabel loginLink; // Torna al login
 
+    /**
+     * Campo per l'inserimento della password (caratteri oscurati).
+     */
+    JPasswordField passwordField;
+
+    /**
+     * Campo per la conferma della password (deve coincidere con il primo).
+     */
+    JPasswordField confirmPasswordField;
+
+    /**
+     * Pulsante per inviare i dati e completare la registrazione.
+     */
+    JButton registerButton;
+
+    /**
+     * Etichetta cliccabile che permette di tornare alla schermata di login.
+     */
+    JLabel loginLink;
+
+    /**
+     * Riferimento al controller che gestisce la logica di registrazione.
+     */
     private RegisterController controller;
 
+    /**
+     * Costruisce una nuova finestra di registrazione.
+     * <p>
+     * Configura le proprietà principali della finestra (titolo, dimensioni, non ridimensionabile),
+     * inizializza i componenti grafici e istanzia il controller associato.
+     */
     public RegisterView() {
         setTitle("Registrazione");
-        setSize(500, 400); // Leggermente più alta per il campo in più
+        setSize(500, 400);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setResizable(false);
         initComponents();
 
-        // Collega al suo controller
         this.controller = new RegisterController(this);
     }
 
+    /**
+     * Inizializza, configura e dispone tutti i componenti grafici all'interno della finestra.
+     * Definisce il layout, i colori, i bordi e i campi di input.
+     */
     private void initComponents() {
         JPanel mainPanel = new JPanel(new BorderLayout());
         mainPanel.setBackground(Color.WHITE);
@@ -49,7 +84,6 @@ public class RegisterView extends JFrame {
         formPanel.setBackground(Color.WHITE);
         formPanel.setBorder(BorderFactory.createEmptyBorder(10, 25, 25, 25));
 
-        // Username
         JLabel userLabel = new JLabel("UserName");
         userLabel.setFont(new Font("SansSerif", Font.BOLD, 15));
         userLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -64,7 +98,6 @@ public class RegisterView extends JFrame {
         formPanel.add(usernameField);
         formPanel.add(Box.createRigidArea(new Dimension(0, 10)));
 
-        // Password
         JLabel passLabel = new JLabel("Password");
         passLabel.setFont(new Font("SansSerif", Font.BOLD, 15));
         passLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -79,7 +112,6 @@ public class RegisterView extends JFrame {
         formPanel.add(passwordField);
         formPanel.add(Box.createRigidArea(new Dimension(0, 10)));
 
-        // Conferma Password
         JLabel confirmPassLabel = new JLabel("Conferma Password");
         confirmPassLabel.setFont(new Font("SansSerif", Font.BOLD, 15));
         confirmPassLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -94,7 +126,6 @@ public class RegisterView extends JFrame {
         formPanel.add(confirmPasswordField);
         formPanel.add(Box.createRigidArea(new Dimension(0, 15)));
 
-        // Bottone Registrati
         registerButton = new JButton("Registrati");
         registerButton.setAlignmentX(Component.LEFT_ALIGNMENT);
         registerButton.setForeground(Color.WHITE);
@@ -107,7 +138,6 @@ public class RegisterView extends JFrame {
 
         formPanel.add(Box.createRigidArea(new Dimension(0, 10)));
 
-        // Link per tornare al Login
         loginLink = new JLabel("Hai già un account? Accedi");
         loginLink.setFont(new Font("SansSerif", Font.PLAIN, 12));
         loginLink.setForeground(Color.BLUE.darker());
@@ -119,33 +149,70 @@ public class RegisterView extends JFrame {
         add(mainPanel);
     }
 
-    // --- METODI DI SUPPORTO ---
-
+    /**
+     * Recupera il testo inserito nel campo username.
+     * Rimuove eventuali spazi vuoti iniziali e finali.
+     *
+     * @return La stringa dell'username.
+     */
     public String getUsername() {
         return usernameField.getText().trim();
     }
 
+    /**
+     * Recupera il testo inserito nel campo password.
+     *
+     * @return La stringa della password.
+     */
     public String getPassword() {
         return new String(passwordField.getPassword());
     }
 
+    /**
+     * Recupera il testo inserito nel campo di conferma password.
+     *
+     * @return La stringa della conferma password.
+     */
     public String getConfirmPassword() {
         return new String(confirmPasswordField.getPassword());
     }
 
+    /**
+     * Registra un listener per gestire l'evento di registrazione.
+     * Il listener viene associato sia al pulsante "Registrati" che al campo
+     * di conferma password (per permettere l'invio tramite il tasto Invio).
+     *
+     * @param listener L'{@link ActionListener} da associare agli eventi di input.
+     */
     public void addRegisterListener(ActionListener listener) {
         registerButton.addActionListener(listener);
-        confirmPasswordField.addActionListener(listener); // Attiva con Invio
+        confirmPasswordField.addActionListener(listener);
     }
 
+    /**
+     * Registra un listener per gestire il click sul link "Accedi".
+     * Permette di navigare verso la schermata di login.
+     *
+     * @param listener Il {@link MouseAdapter} da associare all'etichetta del link.
+     */
     public void addLoginLinkListener(MouseAdapter listener) {
         loginLink.addMouseListener(listener);
     }
 
+    /**
+     * Mostra un messaggio di errore all'utente tramite una finestra di dialogo modale.
+     *
+     * @param messaggio Il testo dell'errore da visualizzare.
+     */
     public void mostraErrore(String messaggio) {
         JOptionPane.showMessageDialog(this, messaggio, "Errore Registrazione", JOptionPane.ERROR_MESSAGE);
     }
 
+    /**
+     * Mostra un messaggio di successo all'utente tramite una finestra di dialogo modale.
+     *
+     * @param messaggio Il testo di successo da visualizzare.
+     */
     public void mostraSuccesso(String messaggio) {
         JOptionPane.showMessageDialog(this, messaggio, "Successo", JOptionPane.INFORMATION_MESSAGE);
     }
