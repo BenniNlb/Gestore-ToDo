@@ -60,14 +60,18 @@ public class ToDoCard extends JPanel {
      * @param draggable {@code true} se la card deve essere trascinabile (Drag &amp; Drop), {@code false} altrimenti.
      */
     public ToDoCard(ToDo todo, MainController ctrl, int cardWidth, boolean draggable) {
-        setLayout(new BorderLayout(0, 4)); // 4px di gap verticale
-        setBackground(todo.getColoreSfondo() != null ? todo.getColoreSfondo() : Color.WHITE);
+        setLayout(new BorderLayout(0, 4));
+
+        Color bgColor = todo.getColoreSfondo() != null ? todo.getColoreSfondo() : Color.WHITE;
+        setBackground(bgColor);
+
+        Color textColor = getContrastingColor(bgColor);
 
         setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
 
         Insets insets = getBorder().getBorderInsets(this);
         int contentWidth = cardWidth - insets.left - insets.right;
-        if (contentWidth <= 0) contentWidth = 100; // Fallback
+        if (contentWidth <= 0) contentWidth = 100;
 
         final int idUtenteLoggato = ctrl.getUtenteLoggato().getIdUtente();
         final boolean isAuthor = (idUtenteLoggato == todo.getIdUtenteCreatore());
@@ -76,8 +80,6 @@ public class ToDoCard extends JPanel {
         final boolean canDelete = isAuthor;
         final boolean canManageShares = isAuthor;
 
-
-        // --- Logica DnD ---
         if (draggable && canEdit) {
             setTransferHandler(new TransferHandler() {
                 @Override
@@ -123,18 +125,23 @@ public class ToDoCard extends JPanel {
         titolo.setEditable(false);
         titolo.setOpaque(false);
         titolo.setFocusable(false);
-        titolo.setBorder(null);
+        titolo.setBorder(BorderFactory.createEmptyBorder(4, 0, 0, 0));
         titolo.setFont(new Font("SansSerif", Font.BOLD, 15));
+
+        titolo.setForeground(textColor);
 
         JCheckBox checkCompletato = new JCheckBox();
         checkCompletato.setOpaque(false);
         checkCompletato.setSelected(todo.isCompletato());
         checkCompletato.setEnabled(canEdit);
+        checkCompletato.setVerticalAlignment(SwingConstants.TOP);
 
         boolean scaduto = todo.getDataScadenza() != null && todo.getDataScadenza().isBefore(LocalDate.now());
 
         if (scaduto && !todo.isCompletato()) {
             titolo.setForeground(Color.RED);
+        } else {
+            titolo.setForeground(textColor);
         }
 
         checkCompletato.addActionListener(e -> {
@@ -142,9 +149,9 @@ public class ToDoCard extends JPanel {
             ctrl.onToggleCompletato(todo, isSelected);
 
             if (scaduto) {
-                titolo.setForeground(isSelected ? Color.BLACK : Color.RED);
+                titolo.setForeground(isSelected ? textColor : Color.RED);
             } else {
-                titolo.setForeground(Color.BLACK);
+                titolo.setForeground(textColor);
             }
         });
 
@@ -153,11 +160,14 @@ public class ToDoCard extends JPanel {
 
         Map<Utente, PermessoCondivisione> condivisioni = todo.getCondivisioni();
         if (condivisioni != null && !condivisioni.isEmpty()) {
-            JLabel shareIcon = new JLabel("👥 " + condivisioni.size()); // Testo emoji
+            JLabel shareIcon = new JLabel("👥 " + condivisioni.size());
             shareIcon.setFont(new Font("SansSerif", Font.PLAIN, 16));
             shareIcon.setToolTipText("Condiviso con " + condivisioni.size() + " utenti");
             shareIcon.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 5));
             shareIcon.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            shareIcon.setVerticalAlignment(SwingConstants.TOP);
+
+            shareIcon.setForeground(textColor);
 
             shareIcon.addMouseListener(new MouseAdapter() {
                 @Override
@@ -183,6 +193,8 @@ public class ToDoCard extends JPanel {
             desc.setFont(new Font("SansSerif", Font.PLAIN, 13));
             desc.setAlignmentX(Component.LEFT_ALIGNMENT);
             desc.setBorder(BorderFactory.createEmptyBorder(6, 0, 6, 0));
+
+            desc.setForeground(textColor);
 
             contentPanel.add(desc);
         }
@@ -210,6 +222,8 @@ public class ToDoCard extends JPanel {
         JLabel dateLabel = new JLabel(todo.getDataScadenza() != null ? todo.getDataScadenza().toString() : "Senza data");
         dateLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
 
+        dateLabel.setForeground(textColor);
+
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         right.setOpaque(false);
 
@@ -233,7 +247,6 @@ public class ToDoCard extends JPanel {
 
         add(footer, BorderLayout.SOUTH);
     }
-
 
     private void mostraCondivisioni(ToDo todo, MainController ctrl) {
         Map<Utente, PermessoCondivisione> condivisioni = todo.getCondivisioni();
@@ -383,4 +396,20 @@ public class ToDoCard extends JPanel {
         Image scaled = src.getImage().getScaledInstance(newW, newH, Image.SCALE_AREA_AVERAGING);
         return new ImageIcon(scaled);
     }
+
+    /**
+     * Calcola il colore del testo (Bianco o Nero) in base alla luminosità dello sfondo
+     * per garantire il massimo contrasto e leggibilità.
+     *
+     * @param background Il colore di sfondo.
+     * @return Color.WHITE se lo sfondo è scuro, Color.BLACK se è chiaro.
+     */
+    private Color getContrastingColor(Color background) {
+        if (background == null) return Color.BLACK;
+        // Formula per la luminanza percepita: 0.299*R + 0.587*G + 0.114*B
+        double luminance = 0.299 * background.getRed() + 0.587 * background.getGreen() + 0.114 * background.getBlue();
+        // Se la luminanza è bassa (< 128), lo sfondo è scuro -> testo Bianco
+        return luminance < 128 ? Color.WHITE : Color.BLACK;
+    }
+
 }
