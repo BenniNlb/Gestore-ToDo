@@ -62,9 +62,14 @@ public class ToDoCard extends JPanel {
     public ToDoCard(ToDo todo, MainController ctrl, int cardWidth, boolean draggable) {
         setLayout(new BorderLayout(0, 4));
 
-        Color bgColor = todo.getColoreSfondo() != null ? todo.getColoreSfondo() : Color.WHITE;
-        setBackground(bgColor);
+        boolean scaduto = todo.getDataScadenza() != null && todo.getDataScadenza().isBefore(LocalDate.now());
+        boolean showScaduto = scaduto && !todo.isCompletato();
 
+        Color baseColor = todo.getColoreSfondo() != null ? todo.getColoreSfondo() : Color.WHITE;
+
+        Color bgColor = showScaduto ? getFadedColor(baseColor) : baseColor;
+
+        setBackground(bgColor);
         Color textColor = getContrastingColor(bgColor);
 
         setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
@@ -136,9 +141,9 @@ public class ToDoCard extends JPanel {
         checkCompletato.setEnabled(canEdit);
         checkCompletato.setVerticalAlignment(SwingConstants.TOP);
 
-        boolean scaduto = todo.getDataScadenza() != null && todo.getDataScadenza().isBefore(LocalDate.now());
+        //boolean scaduto = todo.getDataScadenza() != null && todo.getDataScadenza().isBefore(LocalDate.now());
 
-        if (scaduto && !todo.isCompletato()) {
+        if (showScaduto) {
             titolo.setForeground(Color.RED);
         } else {
             titolo.setForeground(textColor);
@@ -147,12 +152,6 @@ public class ToDoCard extends JPanel {
         checkCompletato.addActionListener(e -> {
             boolean isSelected = checkCompletato.isSelected();
             ctrl.onToggleCompletato(todo, isSelected);
-
-            if (scaduto) {
-                titolo.setForeground(isSelected ? textColor : Color.RED);
-            } else {
-                titolo.setForeground(textColor);
-            }
         });
 
         topRow.add(checkCompletato, BorderLayout.WEST);
@@ -412,4 +411,14 @@ public class ToDoCard extends JPanel {
         return luminance < 128 ? Color.WHITE : Color.BLACK;
     }
 
+    /**
+     * Rende il colore molto pallido (pastello) per le card scadute.
+     */
+    private Color getFadedColor(Color original) {
+        if (original == null) return Color.WHITE;
+        int r = (int) (original.getRed() + (255 - original.getRed()) * 0.85);
+        int g = (int) (original.getGreen() + (255 - original.getGreen()) * 0.85);
+        int b = (int) (original.getBlue() + (255 - original.getBlue()) * 0.85);
+        return new Color(r, g, b);
+    }
 }

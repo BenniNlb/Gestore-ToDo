@@ -73,6 +73,10 @@ public class BoardView extends JFrame {
      */
     private boolean showInScadenza = true;
 
+    /** Memoria per i filtri attivi */
+    private String currentTextQuery = null;
+    private String currentDateQuery = null;
+
     /**
      * Costruisce la finestra principale (Dashboard) dell'applicazione.
      * <p>
@@ -179,11 +183,21 @@ public class BoardView extends JFrame {
      * e {@link InScadenzaPanel}.
      */
     public void refreshCenter() {
+        if (currentTextQuery != null) {
+            doSearch(currentTextQuery);
+            return;
+        }
+
+        if (currentDateQuery != null) {
+            doDateSearch(currentDateQuery);
+            return;
+        }
+
         centerPanel.removeAll();
         centerPanel.setLayout(new BoxLayout(centerPanel, BoxLayout.X_AXIS));
 
         int containerWidth = Math.max(400, getContentPane().getWidth());
-        List<Bacheca> bacheche = mainCtrl.getBachecaController().getAllBacheche();
+        List<model.Bacheca> bacheche = mainCtrl.getBachecaController().getAllBacheche();
         int columns = bacheche.size() + (showInScadenza ? 1 : 0);
         if (columns == 0) columns = 1;
 
@@ -198,7 +212,7 @@ public class BoardView extends JFrame {
         boolean firstColumn = false;
 
         if (showInScadenza) {
-            InScadenzaPanel inScadenza = new InScadenzaPanel(mainCtrl, widthPer);
+            gui.panels.InScadenzaPanel inScadenza = new gui.panels.InScadenzaPanel(mainCtrl, widthPer);
             inScadenza.setAlignmentY(Component.TOP_ALIGNMENT);
             inScadenza.setPreferredSize(new Dimension(widthPer, availableHeight + 80));
             inScadenza.setMaximumSize(new Dimension(widthPer, Integer.MAX_VALUE));
@@ -206,10 +220,10 @@ public class BoardView extends JFrame {
             firstColumn = true;
         }
 
-        for (Bacheca b : bacheche) {
+        for (model.Bacheca b : bacheche) {
             if (firstColumn) centerPanel.add(Box.createRigidArea(new Dimension(GAP_BETWEEN, 0)));
 
-            BachecaPanel panel = new BachecaPanel(b, mainCtrl, widthPer, availableHeight);
+            gui.panels.BachecaPanel panel = new gui.panels.BachecaPanel(b, mainCtrl, widthPer, availableHeight);
             panel.setAlignmentY(Component.TOP_ALIGNMENT);
             panel.setMaximumSize(new Dimension(widthPer, Integer.MAX_VALUE));
             centerPanel.add(panel);
@@ -254,6 +268,9 @@ public class BoardView extends JFrame {
      * @param query La stringa da cercare nel titolo o nella descrizione.
      */
     public void doSearch(String query) {
+        this.currentTextQuery = query;
+        this.currentDateQuery = null;
+
         List<ToDo> found = mainCtrl.getToDoController().searchToDo(query);
         showSearchResults(found, "Risultati ricerca per: \"" + query + "\"");
     }
@@ -273,6 +290,10 @@ public class BoardView extends JFrame {
             JOptionPane.showMessageDialog(this, "Formato data non valido. Usa AAAA-MM-GG.", "Errore Data", JOptionPane.ERROR_MESSAGE);
             return;
         }
+
+        this.currentDateQuery = dateQuery;
+        this.currentTextQuery = null;
+
         List<ToDo> found = mainCtrl.getScadenzePerData(date);
         showSearchResults(found, "ToDo in scadenza il: " + dateQuery);
     }
@@ -298,7 +319,11 @@ public class BoardView extends JFrame {
         topRow.add(title, BorderLayout.WEST);
 
         JButton backBtn = new JButton("← Indietro");
-        backBtn.addActionListener(e -> refreshCenter());
+        backBtn.addActionListener(e -> {
+            this.currentTextQuery = null;
+            this.currentDateQuery = null;
+            refreshCenter();
+        });
         topRow.add(backBtn, BorderLayout.EAST);
 
         centerPanel.add(topRow, BorderLayout.NORTH);

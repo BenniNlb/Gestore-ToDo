@@ -118,7 +118,7 @@ public class InScadenzaPanel extends JPanel {
             int id = td.getIdToDo();
 
             if (id == 0) {
-                map.put(new java.util.Random().nextInt(), td);
+                map.put(System.identityHashCode(td), td);
             } else {
                 map.putIfAbsent(id, td);
             }

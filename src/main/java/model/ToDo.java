@@ -403,13 +403,6 @@ public class ToDo {
      * @return Il {@link PermessoCondivisione} associato, o {@code null} se l'utente non ha accesso.
      */
     public PermessoCondivisione getPermessoPerUtente(Utente utente) {
-        if (utente == null) return null;
-
-        for (Utente u : condivisioni.keySet()) {
-            if (u.getIdUtente() == utente.getIdUtente()) {
-                return condivisioni.get(u);
-            }
-        }
-        return null;
+        return utente != null ? condivisioni.get(utente) : null;
     }
 }

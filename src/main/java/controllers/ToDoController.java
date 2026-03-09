@@ -188,13 +188,19 @@ public class ToDoController {
     }
 
     /**
-     * Recupera tutti i ToDo (propri e condivisi) che scadono in una data specifica.
+     * Recupera tutti i ToDo che scadono in una data specifica filtrando quelli in memoria.
      *
      * @param date La data di scadenza da cercare.
      * @return Una lista di {@link ToDo} corrispondenti.
      */
     public List<ToDo> getToDoByDate(LocalDate date) {
-        return todoDAO.getToDosByDate(utenteLoggato.getIdUtente(), date);
+        List<ToDo> risultati = new ArrayList<>();
+        for (ToDo td : getAllToDos()) {
+            if (td.getDataScadenza() != null && td.getDataScadenza().equals(date)) {
+                risultati.add(td); // Passiamo l'istanza originale!
+            }
+        }
+        return risultati;
     }
 
     /**
@@ -217,7 +223,18 @@ public class ToDoController {
      * @return Una lista di {@link ToDo} corrispondenti.
      */
     public List<ToDo> searchToDo(String query) {
-        return todoDAO.searchToDos(utenteLoggato.getIdUtente(), query);
+        String q = query.toLowerCase();
+        List<ToDo> risultati = new ArrayList<>();
+
+        for (ToDo td : getAllToDos()) {
+            boolean matchTitolo = td.getTitolo() != null && td.getTitolo().toLowerCase().contains(q);
+            boolean matchDesc = td.getDescrizione() != null && td.getDescrizione().toLowerCase().contains(q);
+
+            if (matchTitolo || matchDesc) {
+                risultati.add(td); // Passiamo l'istanza originale!
+            }
+        }
+        return risultati;
     }
 
     /**
