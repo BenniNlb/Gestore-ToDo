@@ -73,8 +73,10 @@ public class BoardView extends JFrame {
      */
     private boolean showInScadenza = true;
 
-    /** Memoria per i filtri attivi */
+    /** Query testuale attualmente attiva per il filtraggio della vista. */
     private String currentTextQuery = null;
+
+    /** Query per data attualmente attiva per il filtraggio della vista. */
     private String currentDateQuery = null;
 
     /**
