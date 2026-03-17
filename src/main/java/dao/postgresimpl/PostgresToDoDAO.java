@@ -63,7 +63,7 @@ public class PostgresToDoDAO implements ToDoDAO {
         this.utenteDAO = utenteDAO;
     }
 
-    // --- Metodi Helper per Conversione Tipi ---
+    //Metodi Helper per Conversione Tipi
 
     /**
      * Converte un oggetto {@link Color} in una stringa esadecimale (es. "#RRGGBB").
@@ -472,6 +472,8 @@ public class PostgresToDoDAO implements ToDoDAO {
 
     /**
      * Recupera la mappa delle condivisioni per un ToDo.
+     * Utilizza una JOIN per evitare il problema delle "N+1 query", recuperando i dati
+     * dell'utente e i permessi in un'unica singola interrogazione al database.
      *
      * @param idTodo L'ID del ToDo.
      * @return Mappa {@code Utente -> PermessoCondivisione}.
@@ -479,17 +481,24 @@ public class PostgresToDoDAO implements ToDoDAO {
     @Override
     public Map<Utente, PermessoCondivisione> getCondivisioni(int idTodo) {
         Map<Utente, PermessoCondivisione> mappa = new HashMap<>();
-        String sql = "SELECT id_utente, permesso FROM todo_condivisione WHERE id_todo = ?";
+
+        String sql = "SELECT u.id_utente, u.username, u.password, tc.permesso " +
+                "FROM todo_condivisione tc " +
+                "JOIN utente u ON tc.id_utente = u.id_utente " +
+                "WHERE tc.id_todo = ?";
 
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, idTodo);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
-                    Utente u = utenteDAO.getUtenteById(rs.getInt("id_utente"));
+                    // Creiamo l'utente direttamente con i dati del ResultSet, senza interrogare utenteDAO
+                    Utente u = new Utente(
+                            rs.getInt("id_utente"),
+                            rs.getString("username"),
+                            rs.getString("password")
+                    );
                     PermessoCondivisione p = PermessoCondivisione.fromString(rs.getString("permesso"));
-                    if (u != null) {
-                        mappa.put(u, p);
-                    }
+                    mappa.put(u, p);
                 }
             }
         } catch (SQLException e) {

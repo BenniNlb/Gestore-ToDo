@@ -339,10 +339,22 @@ public class ToDoDetailsView extends JPanel {
                 for (int i = 0; i < linksModel.size(); i++) links.add(linksModel.get(i));
                 TitoloBacheca dest = (TitoloBacheca) bachecaCombo.getSelectedItem();
                 String descToSave = desc.trim();
-                if (toEdit == null)
-                    ctrl.onAddToDo(titolo, data, links, descToSave, selectedColor[0], dest, selectedImage);
-                else
-                    ctrl.onEditToDo(toEdit, titolo, data, links, descToSave, selectedImage, dest, selectedColor[0]);
+
+                // Creo un oggetto "contenitore" con i dati appena inseriti nella GUI
+                // Gli ID (0, 0) sono temporanei, li setterà il controller.
+                ToDo datiInseriti = new ToDo(titolo, 0, 0);
+                datiInseriti.setDataScadenza(data);
+                datiInseriti.setLinkURLs(links);
+                datiInseriti.setDescrizione(descToSave);
+                datiInseriti.setColoreSfondo(selectedColor[0]);
+                datiInseriti.setImmagine(selectedImage);
+
+                if (toEdit == null) {
+                    ctrl.onAddToDo(datiInseriti, dest);
+                } else {
+                    ctrl.onEditToDo(toEdit, datiInseriti, dest);
+                }
+
                 SwingUtilities.getWindowAncestor(this).dispose();
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, ex.getMessage(), "Errore", JOptionPane.ERROR_MESSAGE);

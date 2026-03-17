@@ -2,6 +2,8 @@ package main;
 
 import gui.views.LoginView;
 import javax.swing.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Classe principale che funge da punto di ingresso (Entry Point) per l'applicazione "Gestore ToDo".
@@ -14,6 +16,12 @@ import javax.swing.*;
  * </ul>
  */
 public class Main {
+
+    /**
+     * Logger per la registrazione formale degli eventi e degli errori.
+     * Sostituisce la stampa in console (printStackTrace) per garantire la tracciabilità in produzione.
+     */
+    private static final Logger LOGGER = Logger.getLogger(Main.class.getName());
 
     /**
      * Costruttore privato per nascondere quello pubblico implicito.
@@ -36,7 +44,7 @@ public class Main {
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.log(Level.WARNING, "Impossibile impostare il Look and Feel di sistema.", e);
         }
 
         SwingUtilities.invokeLater(() -> new LoginView().setVisible(true));

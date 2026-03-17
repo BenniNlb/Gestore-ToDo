@@ -8,10 +8,9 @@ import model.PermessoCondivisione;
 import model.TitoloBacheca;
 import model.Utente;
 
-import java.awt.Color;
+
 import java.time.LocalDate;
 import java.util.*;
-import javax.swing.ImageIcon;
 
 /**
  * Controller (Control) responsabile della gestione delle attività (ToDo).
@@ -102,41 +101,33 @@ public class ToDoController {
         }
     }
 
+    // inizio mod
+
     /**
      * Crea un nuovo ToDo, lo salva nel database e aggiorna il modello in memoria.
      *
-     * @param inBacheca    Il titolo della bacheca di destinazione.
-     * @param titolo       Il titolo dell'attività.
-     * @param dataScadenza La data di scadenza.
-     * @param linkURLs     Lista di link associati.
-     * @param descrizione  Descrizione dettagliata.
-     * @param coloreSfondo Colore di sfondo per la card.
-     * @param immagine     Immagine allegata.
+     * @param datiNuovi L'oggetto ToDo contenente i dati inseriti dalla vista.
+     * @param inBacheca Il titolo della bacheca di destinazione.
      * @return L'oggetto {@link ToDo} creato e persistito.
      * @throws IllegalArgumentException Se il titolo è vuoto, la data è nulla o la bacheca non esiste.
      */
-    public ToDo creaToDo(TitoloBacheca inBacheca,
-                         String titolo,
-                         LocalDate dataScadenza,
-                         List<String> linkURLs,
-                         String descrizione,
-                         Color coloreSfondo,
-                         ImageIcon immagine) {
-        if (titolo == null || titolo.trim().isEmpty())
+    public ToDo creaToDo(ToDo datiNuovi, TitoloBacheca inBacheca) {
+        if (datiNuovi.getTitolo() == null || datiNuovi.getTitolo().trim().isEmpty())
             throw new IllegalArgumentException("Titolo obbligatorio");
-        if (dataScadenza == null)
+        if (datiNuovi.getDataScadenza() == null)
             throw new IllegalArgumentException("Data scadenza obbligatoria");
 
         Bacheca b = bachecaCtrl.getBacheca(inBacheca);
         if (b == null) throw new IllegalArgumentException("Bacheca di destinazione non trovata: " + inBacheca);
 
-        ToDo td = new ToDo(titolo, b.getIdBacheca(), utenteLoggato.getIdUtente());
+        // Creiamo la vera istanza da salvare combinando i dati passati e quelli di sistema
+        ToDo td = new ToDo(datiNuovi.getTitolo(), b.getIdBacheca(), utenteLoggato.getIdUtente());
 
-        td.setDataScadenza(dataScadenza);
-        td.setLinkURLs(linkURLs);
-        td.setDescrizione(descrizione);
-        td.setColoreSfondo(coloreSfondo);
-        td.setImmagine(immagine);
+        td.setDataScadenza(datiNuovi.getDataScadenza());
+        td.setLinkURLs(datiNuovi.getLinkURLs());
+        td.setDescrizione(datiNuovi.getDescrizione());
+        td.setColoreSfondo(datiNuovi.getColoreSfondo());
+        td.setImmagine(datiNuovi.getImmagine());
 
         td.setPosizione(b.getToDos().size());
 
@@ -147,6 +138,65 @@ public class ToDoController {
         bachecaCtrl.notifyChange();
         return td;
     }
+
+    /**
+     * Modifica le proprietà di un ToDo esistente.
+     * <p>
+     * Gestisce anche lo spostamento del ToDo da una bacheca all'altra, se la bacheca
+     * di destinazione è diversa da quella corrente. In tal caso, aggiorna le posizioni
+     * sia nella bacheca di origine che in quella di destinazione.
+     *
+     * @param td           Il ToDo da modificare.
+     * @param nuoviDati    L'oggetto ToDo contenente i nuovi dati da applicare.
+     * @param nuovaBacheca La nuova bacheca di appartenenza.
+     * @throws IllegalArgumentException Se il ToDo passato è nullo.
+     */
+    public void modificaToDo(ToDo td, ToDo nuoviDati, TitoloBacheca nuovaBacheca) {
+        if (td == null) throw new IllegalArgumentException("ToDo nullo");
+
+        Bacheca bachecaCorrente = bachecaCtrl.getAllBacheche().stream()
+                .filter(b -> b.getToDos().contains(td))
+                .findFirst()
+                .orElse(null);
+
+        Bacheca bDest = bachecaCtrl.getBacheca(nuovaBacheca);
+
+        // Trasferiamo i nuovi dati nell'oggetto originale
+        td.setTitolo(nuoviDati.getTitolo());
+        td.setDataScadenza(nuoviDati.getDataScadenza());
+        td.setLinkURLs(nuoviDati.getLinkURLs());
+        td.setDescrizione(nuoviDati.getDescrizione());
+        td.setImmagine(nuoviDati.getImmagine());
+        td.setColoreSfondo(nuoviDati.getColoreSfondo());
+
+        if (bDest == null) {
+            todoDAO.updateToDo(td);
+            bachecaCtrl.notifyChange();
+            return;
+        }
+
+        if (bachecaCorrente != null && !bachecaCorrente.equals(bDest)) {
+            bachecaCorrente.rimuoviToDo(td);
+            td.setIdBacheca(bDest.getIdBacheca());
+
+            td.setPosizione(bDest.getToDos().size());
+            bDest.aggiungiToDo(td);
+
+            salvaOrdineBacheca(bachecaCorrente);
+
+        } else if (bachecaCorrente == null) {
+            td.setIdBacheca(bDest.getIdBacheca());
+            td.setPosizione(bDest.getToDos().size());
+            bDest.aggiungiToDo(td);
+        }
+
+        todoDAO.updateToDo(td);
+        salvaOrdineBacheca(bDest);
+
+        bachecaCtrl.notifyChange();
+    }
+
+    // fine mod
 
     /**
      * Elimina un ToDo dal sistema.
@@ -235,74 +285,6 @@ public class ToDoController {
             }
         }
         return risultati;
-    }
-
-    /**
-     * Modifica le proprietà di un ToDo esistente.
-     * <p>
-     * Gestisce anche lo spostamento del ToDo da una bacheca all'altra, se la bacheca
-     * di destinazione è diversa da quella corrente. In tal caso, aggiorna le posizioni
-     * sia nella bacheca di origine che in quella di destinazione.
-     *
-     * @param td               Il ToDo da modificare.
-     * @param nuovoTitolo      Il nuovo titolo.
-     * @param nuovaData        La nuova data di scadenza.
-     * @param nuoviLink        La nuova lista di link.
-     * @param nuovaDescrizione La nuova descrizione.
-     * @param nuovaImmagine    La nuova immagine.
-     * @param nuovaBacheca     La nuova bacheca di appartenenza.
-     * @param nuovoColore      Il nuovo colore di sfondo.
-     * @throws IllegalArgumentException Se il ToDo passato è nullo.
-     */
-    public void modificaToDo(ToDo td,
-                             String nuovoTitolo,
-                             LocalDate nuovaData,
-                             List<String> nuoviLink,
-                             String nuovaDescrizione,
-                             ImageIcon nuovaImmagine,
-                             TitoloBacheca nuovaBacheca,
-                             Color nuovoColore) {
-        if (td == null) throw new IllegalArgumentException("ToDo nullo");
-
-        Bacheca bachecaCorrente = bachecaCtrl.getAllBacheche().stream()
-                .filter(b -> b.getToDos().contains(td))
-                .findFirst()
-                .orElse(null);
-
-        Bacheca bDest = bachecaCtrl.getBacheca(nuovaBacheca);
-
-        td.setTitolo(nuovoTitolo);
-        td.setDataScadenza(nuovaData);
-        td.setLinkURLs(nuoviLink);
-        td.setDescrizione(nuovaDescrizione);
-        td.setImmagine(nuovaImmagine);
-        td.setColoreSfondo(nuovoColore);
-
-        if (bDest == null) {
-            todoDAO.updateToDo(td);
-            bachecaCtrl.notifyChange();
-            return;
-        }
-
-        if (bachecaCorrente != null && !bachecaCorrente.equals(bDest)) {
-            bachecaCorrente.rimuoviToDo(td);
-            td.setIdBacheca(bDest.getIdBacheca());
-
-            td.setPosizione(bDest.getToDos().size());
-            bDest.aggiungiToDo(td);
-
-            salvaOrdineBacheca(bachecaCorrente);
-
-        } else if (bachecaCorrente == null) {
-            td.setIdBacheca(bDest.getIdBacheca());
-            td.setPosizione(bDest.getToDos().size());
-            bDest.aggiungiToDo(td);
-        }
-
-        todoDAO.updateToDo(td);
-        salvaOrdineBacheca(bDest);
-
-        bachecaCtrl.notifyChange();
     }
 
     /**

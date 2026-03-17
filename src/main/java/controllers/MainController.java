@@ -11,9 +11,7 @@ import dao.postgresimpl.PostgresToDoDAO;
 import dao.postgresimpl.PostgresUtenteDAO;
 import database.DBConnection;
 
-import java.awt.Color;
 import java.time.LocalDate;
-import javax.swing.ImageIcon;
 import java.util.List;
 
 /**
@@ -100,27 +98,32 @@ public class MainController {
         bachecaCtrl.modificaDescrizioneBacheca(titolo, nuovaDescrizione);
     }
 
+    // inizio modifica
+
     /**
      * Metodo ponte per aggiungere un nuovo ToDo.
-     * Raccoglie i dati dalla vista e inoltra la richiesta di creazione al {@link ToDoController}.
+     * Inoltra la richiesta di creazione al {@link ToDoController}.
      *
-     * @param titolo      Il titolo del ToDo.
-     * @param data        La data di scadenza.
-     * @param linkURLs    La lista di link associati.
-     * @param descrizione La descrizione dettagliata.
-     * @param colore      Il colore di sfondo.
-     * @param inBacheca   Il {@link TitoloBacheca} di destinazione.
-     * @param immagine    L'immagine allegata.
+     * @param datiNuovi L'oggetto ToDo contenente i dati inseriti dalla vista.
+     * @param inBacheca Il {@link TitoloBacheca} di destinazione.
      */
-    public void onAddToDo(String titolo,
-                          LocalDate data,
-                          java.util.List<String> linkURLs,
-                          String descrizione,
-                          Color colore,
-                          TitoloBacheca inBacheca,
-                          ImageIcon immagine) {
-        todoCtrl.creaToDo(inBacheca, titolo, data, linkURLs, descrizione, colore, immagine);
+    public void onAddToDo(ToDo datiNuovi, TitoloBacheca inBacheca) {
+        todoCtrl.creaToDo(datiNuovi, inBacheca);
     }
+
+    /**
+     * Metodo ponte per modificare un ToDo esistente.
+     * Inoltra la richiesta di aggiornamento al {@link ToDoController}.
+     *
+     * @param td           Il {@link ToDo} target da modificare.
+     * @param datiNuovi    Un oggetto ToDo contenente i nuovi dati da applicare.
+     * @param nuovaBacheca La nuova bacheca di destinazione (gestisce lo spostamento).
+     */
+    public void onEditToDo(ToDo td, ToDo datiNuovi, TitoloBacheca nuovaBacheca) {
+        todoCtrl.modificaToDo(td, datiNuovi, nuovaBacheca);
+    }
+
+    //fine modifica
 
     /**
      * Metodo ponte per aggiungere una nuova bacheca.
@@ -162,35 +165,6 @@ public class MainController {
      */
     public void onToggleCompletato(ToDo td, boolean stato) {
         todoCtrl.setCompletato(td, stato);
-    }
-
-    /**
-     * Metodo ponte per modificare un ToDo esistente.
-     * Inoltra la richiesta di aggiornamento completa al {@link ToDoController}.
-     * <p>
-     * <b>Nota:</b> Questo metodo accetta molti parametri per gestire in un'unica
-     * transazione l'aggiornamento di tutti i campi del ToDo. L'avviso di SonarLint
-     * sui troppi parametri è soppresso intenzionalmente per questa scelta architetturale.
-     *
-     * @param td               Il {@link ToDo} da modificare.
-     * @param nuovoTitolo      Il nuovo titolo.
-     * @param nuovaData        La nuova data di scadenza.
-     * @param nuoviLink        La nuova lista di link.
-     * @param nuovaDescrizione La nuova descrizione.
-     * @param nuovaImmagine    La nuova immagine.
-     * @param nuovaBacheca     La nuova bacheca di destinazione (gestisce lo spostamento).
-     * @param nuovoColore      Il nuovo colore di sfondo.
-     */
-    @SuppressWarnings("common-java:LongParameterList")
-    public void onEditToDo(ToDo td,
-                           String nuovoTitolo,
-                           LocalDate nuovaData,
-                           java.util.List<String> nuoviLink,
-                           String nuovaDescrizione,
-                           ImageIcon nuovaImmagine,
-                           TitoloBacheca nuovaBacheca,
-                           Color nuovoColore) {
-        todoCtrl.modificaToDo(td, nuovoTitolo, nuovaData, nuoviLink, nuovaDescrizione, nuovaImmagine, nuovaBacheca, nuovoColore);
     }
 
     /**
