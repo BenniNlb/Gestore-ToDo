@@ -7,15 +7,15 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import util.ColorsConstant;
 import controllers.LoginController;
+import model.Utente;
 
 /**
  * Rappresenta la finestra di autenticazione (Login) dell'applicazione.
  * <p>
  * Questa classe funge da vista (View) nel pattern MVC per la fase di accesso.
- * Fornisce i campi per l'inserimento di username e password, un pulsante per
- * confermare l'accesso e un collegamento per navigare verso la schermata di registrazione.
- * <p>
- * La logica di business associata a questa vista è gestita dal {@link LoginController}.
+ * Fornisce i campi per l'inserimento di username e password e gestisce
+ * autonomamente l'interazione con l'utente, delegando la pura logica di
+ * verifica delle credenziali al {@link LoginController}.
  */
 public class LoginView extends JFrame {
 
@@ -30,7 +30,7 @@ public class LoginView extends JFrame {
     JPasswordField passwordField;
 
     /**
-     * Pulsante per avviare la procedura di login.
+     * Pulsante grafico per avviare la procedura di login.
      */
     JButton loginButton;
 
@@ -40,16 +40,15 @@ public class LoginView extends JFrame {
     JLabel registerLink;
 
     /**
-     * Riferimento al controller che gestisce la logica di questa vista.
+     * Riferimento al controller che gestisce la logica di business di questa vista.
      */
-    private LoginController controller;
+    private final LoginController controller;
 
     /**
      * Costruisce la finestra di login.
      * <p>
-     * Configura le proprietà della finestra (titolo, dimensioni, non ridimensionabile),
-     * inizializza i componenti grafici tramite {@link #initComponents()} e istanzia
-     * il controller associato.
+     * Configura le proprietà della finestra (titolo, dimensioni), inizializza
+     * i componenti grafici, istanzia il controller associato e configura i listener.
      */
     public LoginView() {
         setTitle("Accesso");
@@ -59,13 +58,13 @@ public class LoginView extends JFrame {
         setResizable(false);
         initComponents();
 
-        this.controller = new LoginController(this);
+        this.controller = new LoginController();
+        setupListeners();
     }
 
     /**
      * Inizializza, configura e dispone i componenti grafici all'interno della finestra.
-     * Definisce il layout, applica gli stili (colori, bordi, font) definiti in
-     * {@link ColorsConstant} e aggiunge i campi di input e i pulsanti.
+     * Definisce il layout, applica gli stili (colori, bordi, font) e aggiunge i campi.
      */
     private void initComponents() {
         JPanel mainPanel = new JPanel(new BorderLayout());
@@ -139,7 +138,35 @@ public class LoginView extends JFrame {
         add(mainPanel);
     }
 
-    // --- METODI DI SUPPORTO ---
+    /**
+     * Configura i listener per i componenti interattivi della vista.
+     * Gestisce l'interazione dell'utente delegando l'autenticazione al controller
+     * e aggiornando la UI di conseguenza (navigazione o messaggi d'errore).
+     */
+    private void setupListeners() {
+        ActionListener loginAction = e -> {
+            try {
+                Utente utenteLoggato = controller.attemptLogin(getUsername(), getPassword());
+                mostraSuccesso("Benvenuto " + utenteLoggato.getLogin() + "!");
+                dispose();
+                SwingUtilities.invokeLater(() -> new BoardView(utenteLoggato).setVisible(true));
+            } catch (Exception ex) {
+                mostraErrore(ex.getMessage());
+            }
+        };
+
+        loginButton.addActionListener(loginAction);
+        usernameField.addActionListener(loginAction);
+        passwordField.addActionListener(loginAction);
+
+        registerLink.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                dispose();
+                SwingUtilities.invokeLater(() -> new RegisterView().setVisible(true));
+            }
+        });
+    }
 
     /**
      * Recupera il testo inserito nel campo username.
@@ -158,29 +185,6 @@ public class LoginView extends JFrame {
      */
     public String getPassword() {
         return new String(passwordField.getPassword());
-    }
-
-    /**
-     * Registra un listener per gestire l'evento di login.
-     * Il listener viene associato sia al pulsante "Accedi" che ai campi di testo
-     * (per permettere l'invio tramite il tasto Invio).
-     *
-     * @param listener L'{@link ActionListener} fornito dal controller.
-     */
-    public void addLoginListener(ActionListener listener) {
-        loginButton.addActionListener(listener);
-        usernameField.addActionListener(listener);
-        passwordField.addActionListener(listener);
-    }
-
-    /**
-     * Registra un listener per gestire il click sul link di registrazione.
-     * Permette di navigare verso la {@link RegisterView}.
-     *
-     * @param listener Il {@link MouseAdapter} fornito dal controller.
-     */
-    public void addRegisterLinkListener(MouseAdapter listener) {
-        registerLink.addMouseListener(listener);
     }
 
     /**

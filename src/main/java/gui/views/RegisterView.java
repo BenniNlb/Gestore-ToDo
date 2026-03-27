@@ -7,14 +7,14 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 
 /**
- * Rappresenta la vista (View) dedicata alla registrazione di nuovi utenti nel sistema.
+ * Rappresenta la vista (View) dedicata alla registrazione di nuovi utenti.
  * <p>
- * Questa classe estende {@link JFrame} e fornisce l'interfaccia grafica necessaria
- * per l'inserimento dei dati di registrazione (username, password e conferma password).
- * Agisce come componente Boundary nel pattern MVC, delegando la logica di business
- * al {@link RegisterController}.
+ * Fornisce l'interfaccia grafica per l'inserimento dei dati di registrazione.
+ * Gestisce i propri eventi e la navigazione, delegando i controlli di business
+ * e l'accesso al database al {@link RegisterController}.
  */
 public class RegisterView extends JFrame {
 
@@ -34,7 +34,7 @@ public class RegisterView extends JFrame {
     JPasswordField confirmPasswordField;
 
     /**
-     * Pulsante per inviare i dati e completare la registrazione.
+     * Pulsante grafico per inviare i dati e completare la registrazione.
      */
     JButton registerButton;
 
@@ -44,15 +44,15 @@ public class RegisterView extends JFrame {
     JLabel loginLink;
 
     /**
-     * Riferimento al controller che gestisce la logica di registrazione.
+     * Riferimento al controller che gestisce la logica di business di registrazione.
      */
-    private RegisterController controller;
+    private final RegisterController controller;
 
     /**
      * Costruisce una nuova finestra di registrazione.
      * <p>
-     * Configura le proprietà principali della finestra (titolo, dimensioni, non ridimensionabile),
-     * inizializza i componenti grafici e istanzia il controller associato.
+     * Configura le proprietà principali della finestra, inizializza i componenti grafici,
+     * istanzia il controller associato e configura i listener degli eventi.
      */
     public RegisterView() {
         setTitle("Registrazione");
@@ -62,12 +62,13 @@ public class RegisterView extends JFrame {
         setResizable(false);
         initComponents();
 
-        this.controller = new RegisterController(this);
+        this.controller = new RegisterController();
+        setupListeners();
     }
 
     /**
      * Inizializza, configura e dispone tutti i componenti grafici all'interno della finestra.
-     * Definisce il layout, i colori, i bordi e i campi di input.
+     * Definisce il layout, i colori, i bordi e inserisce i campi di input.
      */
     private void initComponents() {
         JPanel mainPanel = new JPanel(new BorderLayout());
@@ -150,10 +151,38 @@ public class RegisterView extends JFrame {
     }
 
     /**
+     * Configura i listener per gestire l'interazione dell'utente con i componenti.
+     * Interroga il controller per tentare la registrazione e, in caso di successo,
+     * riporta l'utente alla schermata di Login.
+     */
+    private void setupListeners() {
+        ActionListener registerAction = e -> {
+            try {
+                controller.attemptRegister(getUsername(), getPassword(), getConfirmPassword());
+                mostraSuccesso("Registrazione completata! Ora puoi effettuare il login.");
+                dispose();
+                SwingUtilities.invokeLater(() -> new LoginView().setVisible(true));
+            } catch (Exception ex) {
+                mostraErrore(ex.getMessage());
+            }
+        };
+
+        registerButton.addActionListener(registerAction);
+        confirmPasswordField.addActionListener(registerAction);
+
+        loginLink.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                dispose();
+                SwingUtilities.invokeLater(() -> new LoginView().setVisible(true));
+            }
+        });
+    }
+
+    /**
      * Recupera il testo inserito nel campo username.
-     * Rimuove eventuali spazi vuoti iniziali e finali.
      *
-     * @return La stringa dell'username.
+     * @return La stringa dell'username, senza spazi iniziali e finali.
      */
     public String getUsername() {
         return usernameField.getText().trim();
@@ -175,28 +204,6 @@ public class RegisterView extends JFrame {
      */
     public String getConfirmPassword() {
         return new String(confirmPasswordField.getPassword());
-    }
-
-    /**
-     * Registra un listener per gestire l'evento di registrazione.
-     * Il listener viene associato sia al pulsante "Registrati" che al campo
-     * di conferma password (per permettere l'invio tramite il tasto Invio).
-     *
-     * @param listener L'{@link ActionListener} da associare agli eventi di input.
-     */
-    public void addRegisterListener(ActionListener listener) {
-        registerButton.addActionListener(listener);
-        confirmPasswordField.addActionListener(listener);
-    }
-
-    /**
-     * Registra un listener per gestire il click sul link "Accedi".
-     * Permette di navigare verso la schermata di login.
-     *
-     * @param listener Il {@link MouseAdapter} da associare all'etichetta del link.
-     */
-    public void addLoginLinkListener(MouseAdapter listener) {
-        loginLink.addMouseListener(listener);
     }
 
     /**

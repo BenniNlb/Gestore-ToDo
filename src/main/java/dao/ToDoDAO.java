@@ -71,12 +71,7 @@ public interface ToDoDAO {
      */
     List<ToDo> getAllToDosByBacheca(int idBacheca);
 
-    /**
-     * Imposta lo stato di tutti i ToDo di una bacheca come "completato".
-     *
-     * @param idBacheca L'ID della bacheca target.
-     */
-    void markAllToDosAsCompletedByBacheca(int idBacheca);
+
 
     /**
      * Recupera i ToDo (sia propri che condivisi) associati a un utente

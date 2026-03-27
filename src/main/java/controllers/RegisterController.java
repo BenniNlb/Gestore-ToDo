@@ -1,37 +1,24 @@
 package controllers;
 
-import dao.*;
-import dao.postgresimpl.*;
+import dao.BachecaDAO;
+import dao.UtenteDAO;
+import dao.postgresimpl.PostgresBachecaDAO;
+import dao.postgresimpl.PostgresUtenteDAO;
 import util.PasswordHasher;
-import gui.views.LoginView;
-import gui.views.RegisterView;
 import model.Bacheca;
 import model.TitoloBacheca;
 import model.Utente;
 
-import javax.swing.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.util.Arrays;
 
 /**
- * Controller (Control) responsabile della gestione del processo di registrazione di nuovi utenti.
+ * Controller (Control) responsabile della gestione della logica di registrazione.
  * <p>
- * Questa classe gestisce l'interazione tra la vista di registrazione ({@link RegisterView})
- * e il livello di persistenza. Si occupa di:
- * <ul>
- * <li>Validare i dati di input (username, password, conferma password).</li>
- * <li>Verificare l'unicità dell'username nel database tramite {@link UtenteDAO}.</li>
- * <li>Creare il nuovo utente con password cifrata.</li>
- * <li>Inizializzare le bacheche predefinite per il nuovo utente tramite {@link BachecaDAO}.</li>
- * </ul>
+ * Si occupa unicamente di validare i dati, interagire con il database per il
+ * salvataggio del nuovo utente e generare le bacheche predefinite.
+ * Rispetta il pattern MVC non avendo alcun riferimento diretto alle View.
  */
 public class RegisterController {
-
-    /**
-     * Riferimento alla vista di registrazione gestita da questo controller.
-     */
-    private final RegisterView registerView;
 
     /**
      * Oggetto DAO per l'accesso ai dati degli utenti.
@@ -39,77 +26,56 @@ public class RegisterController {
     private final UtenteDAO utenteDAO;
 
     /**
-     * Oggetto DAO per l'accesso ai dati delle bacheche.
-     * Necessario per creare le bacheche di default al momento della registrazione.
+     * Oggetto DAO per l'accesso ai dati delle bacheche (per la creazione di default).
      */
     private final BachecaDAO bachecaDAO;
 
     /**
-     * Costruisce un nuovo RegisterController.
-     * <p>
-     * Inizializza i DAO necessari (Postgres implementation) e registra i listener
-     * per i pulsanti e i link presenti nella vista di registrazione.
-     *
-     * @param registerView L'istanza della vista di registrazione da controllare.
+     * Costruisce un nuovo RegisterController inizializzando le implementazioni DAO necessarie.
      */
-    public RegisterController(RegisterView registerView) {
-        this.registerView = registerView;
+    public RegisterController() {
         this.utenteDAO = new PostgresUtenteDAO();
         this.bachecaDAO = new PostgresBachecaDAO();
-
-        this.registerView.addRegisterListener(e -> attemptRegister());
-        this.registerView.addLoginLinkListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                openLoginView();
-            }
-        });
     }
 
     /**
      * Esegue il tentativo di registrazione di un nuovo utente.
      * <p>
-     * Recupera i dati dalla vista, esegue i controlli di validazione (campi vuoti,
-     * corrispondenza password, esistenza utente) e, se i controlli passano,
-     * procede con l'hashing della password, il salvataggio dell'utente e
-     * la generazione delle sue bacheche di default.
+     * Effettua i controlli formali sui parametri, verifica l'unicità dell'username,
+     * effettua l'hashing della password e salva la nuova entità sul database.
+     *
+     * @param username L'username scelto dall'utente.
+     * @param password La password in chiaro.
+     * @param confirmPassword La conferma della password.
+     * @throws Exception Se i campi non sono validi o se l'utente esiste già.
      */
-    private void attemptRegister() {
-        String user = registerView.getUsername();
-        String pass = registerView.getPassword();
-        String confirmPass = registerView.getConfirmPassword();
-
-        if (user.isEmpty() || pass.isEmpty() || confirmPass.isEmpty()) {
-            registerView.mostraErrore("Tutti i campi sono obbligatori.");
-            return;
+    public void attemptRegister(String username, String password, String confirmPassword) throws Exception {
+        if (username.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
+            throw new Exception("Tutti i campi sono obbligatori.");
         }
-        if (!pass.equals(confirmPass)) {
-            registerView.mostraErrore("Le password non corrispondono.");
-            return;
+        if (!password.equals(confirmPassword)) {
+            throw new Exception("Le password non corrispondono.");
         }
-        if (utenteDAO.utenteEsiste(user)) {
-            registerView.mostraErrore("Questo username è già in uso.");
-            return;
+        if (utenteDAO.utenteEsiste(username)) {
+            throw new Exception("Questo username è già in uso.");
         }
 
-        String hashedPassword = PasswordHasher.hashPassword(pass);
-        Utente nuovoUtente = new Utente(user, hashedPassword);
+        String hashedPassword = PasswordHasher.hashPassword(password);
+        Utente nuovoUtente = new Utente(username, hashedPassword);
 
         utenteDAO.addUtente(nuovoUtente);
 
-        creaBachecheDefault(nuovoUtente);
-
-        registerView.mostraSuccesso("Registrazione completata! Ora puoi effettuare il login.");
-        openLoginView();
+        // Recupera l'utente appena creato dal DB per ottenere l'ID assegnato
+        Utente utenteCreato = utenteDAO.getUtenteByUsername(username);
+        if (utenteCreato != null) {
+            creaBachecheDefault(utenteCreato);
+        }
     }
 
     /**
-     * Crea e salva nel database le tre bacheche predefinite per il nuovo utente.
-     * <p>
-     * Le bacheche create sono: Università, Lavoro e Tempo Libero, ordinate
-     * rispettivamente nelle posizioni 0, 1 e 2.
+     * Crea e salva nel database le bacheche predefinite per il nuovo utente.
      *
-     * @param utente L'oggetto {@link Utente} appena creato a cui associare le bacheche.
+     * @param utente L'oggetto {@link Utente} a cui associare le bacheche.
      */
     private void creaBachecheDefault(Utente utente) {
         int pos = 0;
@@ -121,15 +87,5 @@ public class RegisterController {
             Bacheca nuovaBacheca = new Bacheca(t, "", utente.getIdUtente(), pos++);
             bachecaDAO.addBacheca(nuovaBacheca);
         }
-    }
-
-    /**
-     * Gestisce la navigazione verso la schermata di login.
-     * <p>
-     * Chiude la finestra di registrazione corrente e apre una nuova istanza di {@link LoginView}.
-     */
-    private void openLoginView() {
-        registerView.dispose();
-        SwingUtilities.invokeLater(() -> new LoginView().setVisible(true));
     }
 }

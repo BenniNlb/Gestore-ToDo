@@ -454,21 +454,6 @@ public class PostgresToDoDAO implements ToDoDAO {
         return new ArrayList<>();
     }
 
-    /**
-     * Segna come completati tutti i ToDo di una bacheca specifica.
-     *
-     * @param idBacheca L'ID della bacheca.
-     */
-    @Override
-    public void markAllToDosAsCompletedByBacheca(int idBacheca) {
-        String sql = "UPDATE todo SET stato = true WHERE id_bacheca = ?";
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, idBacheca);
-            stmt.executeUpdate();
-        } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Errore durante markAllToDosAsCompleted", e);
-        }
-    }
 
     /**
      * Recupera la mappa delle condivisioni per un ToDo.
