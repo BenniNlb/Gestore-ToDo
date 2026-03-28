@@ -410,7 +410,7 @@ public class ToDo {
      * Verifica se il ToDo è ancora modificabile.
      * Viene considerato bloccato se la data odierna ha superato di oltre 24h
      * (quindi il giorno successivo) la data di scadenza.
-     * * @return true se è modificabile, false se è bloccato.
+     * @return true se è modificabile, false se è bloccato.
      */
     public boolean isModificabile() {
         if (this.dataScadenza == null) {
