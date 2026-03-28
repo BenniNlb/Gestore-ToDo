@@ -1,11 +1,9 @@
 package gui.views;
 
 import controllers.MainController;
-import gui.cards.ToDoCard;
 import gui.dialogs.AddBachecaDialog;
 import gui.panels.BachecaPanel;
 import gui.panels.InScadenzaPanel;
-import gui.panels.WrapPanel;
 import model.Bacheca;
 import model.ToDo;
 import model.TitoloBacheca;
