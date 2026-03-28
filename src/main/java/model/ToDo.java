@@ -405,4 +405,19 @@ public class ToDo {
     public PermessoCondivisione getPermessoPerUtente(Utente utente) {
         return utente != null ? condivisioni.get(utente) : null;
     }
+
+    /**
+     * Verifica se il ToDo è ancora modificabile.
+     * Viene considerato bloccato se la data odierna ha superato di oltre 24h
+     * (quindi il giorno successivo) la data di scadenza.
+     * * @return true se è modificabile, false se è bloccato.
+     */
+    public boolean isModificabile() {
+        if (this.dataScadenza == null) {
+            return true;
+        }
+
+        return !LocalDate.now().isAfter(this.dataScadenza.plusDays(1));
+
+    }
 }

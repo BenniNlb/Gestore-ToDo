@@ -81,9 +81,17 @@ public class ToDoCard extends JPanel {
         final int idUtenteLoggato = ctrl.getUtenteLoggato().getIdUtente();
         final boolean isAuthor = (idUtenteLoggato == todo.getIdUtenteCreatore());
         final PermessoCondivisione mioPermesso = todo.getPermessoPerUtente(ctrl.getUtenteLoggato());
-        final boolean canEdit = isAuthor || PermessoCondivisione.MODIFICA.equals(mioPermesso);
+
+        // --- LOGICA DI BLOCCO TEMPORALE ---
+        // Usiamo il metodo che abbiamo appena creato nel Model
+        boolean ancoraModificabile = todo.isModificabile();
+
+        // canEdit è true solo se l'utente ha i permessi E non è scaduto il tempo massimo
+        final boolean canEdit = (isAuthor || PermessoCondivisione.MODIFICA.equals(mioPermesso)) && ancoraModificabile;
+
         final boolean canDelete = isAuthor;
         final boolean canManageShares = isAuthor;
+
 
         if (draggable && canEdit) {
             setTransferHandler(new TransferHandler() {
@@ -345,7 +353,15 @@ public class ToDoCard extends JPanel {
             Window owner = SwingUtilities.getWindowAncestor(ToDoCard.this);
             new AddEditToDoDialog(owner, ctrl, todo, true);
         });
+
+        // Disattiva il bottone se non può editare
         edit.setEnabled(canEdit);
+
+        // Se il blocco è dovuto alla scadenza, spieghiamolo con un fumetto (ToolTip)
+        if (!todo.isModificabile()) {
+            edit.setToolTipText("Non più modificabile: scaduto il tempo massimo (24h di grazia)");
+        }
+
         popup.add(edit);
 
         JMenuItem share = new JMenuItem("Gestisci Condivisioni...");
