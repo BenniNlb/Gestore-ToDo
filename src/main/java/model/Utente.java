@@ -72,17 +72,6 @@ public class Utente {
         return username;
     }
 
-    /**
-     * Restituisce l'username dell'utente.
-     * <p>
-     * Alias di {@link #getUsername()}, mantenuto per compatibilità con eventuali
-     * interfacce che richiedono esplicitamente il metodo "getLogin".
-     *
-     * @return La stringa dell'username.
-     */
-    public String getLogin() {
-        return username;
-    }
 
     /**
      * Restituisce la password dell'utente in formato hash.

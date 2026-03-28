@@ -147,7 +147,7 @@ public class LoginView extends JFrame {
         ActionListener loginAction = e -> {
             try {
                 Utente utenteLoggato = controller.attemptLogin(getUsername(), getPassword());
-                mostraSuccesso("Benvenuto " + utenteLoggato.getLogin() + "!");
+                mostraSuccesso("Benvenuto " + utenteLoggato.getUsername() + "!");
                 dispose();
                 SwingUtilities.invokeLater(() -> new BoardView(utenteLoggato).setVisible(true));
             } catch (Exception ex) {
