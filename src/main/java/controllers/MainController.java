@@ -254,4 +254,12 @@ public class MainController {
     public void onSalvaOrdineBacheca(Bacheca bacheca) {
         todoCtrl.salvaOrdineBacheca(bacheca);
     }
+    /**
+     * Elimina l'utente attualmente loggato dal database.
+     */
+    public void eliminaAccount() {
+        // Usiamo i DAO corretti come definito nel tuo costruttore
+        UtenteDAO utenteDAO = new PostgresUtenteDAO(DBConnection.getConnection());
+        utenteDAO.deleteUtenteById(utenteLoggato.getIdUtente());
+    }
 }
